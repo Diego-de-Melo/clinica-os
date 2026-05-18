@@ -56,7 +56,8 @@ function SuperAdminPage() {
   });
 
   const updMut = useMutation({
-    mutationFn: (input: Parameters<typeof updateFn>[0]["data"]) => updateFn({ data: input }),
+    mutationFn: (input: { id: string; status?: "ativo" | "inativo"; expirationDate?: string | null; name?: string }) =>
+      updateFn({ data: input }),
     onSuccess: () => { toast.success("Clínica atualizada"); qc.invalidateQueries({ queryKey: ["clinics"] }); },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Erro"),
   });
