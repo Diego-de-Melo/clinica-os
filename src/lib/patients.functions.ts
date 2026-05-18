@@ -114,7 +114,8 @@ export const bulkCreatePatients = createServerFn({ method: "POST" })
     if (!prof?.clinic_id) throw new Error("Sem clínica associada");
     if (prof.role !== "admin")
       throw new Error("Apenas o admin pode importar CSV");
-    const rows = data.patients.map((p) => ({ ...p, clinic_id: prof.clinic_id }));
+    const clinicId = prof.clinic_id;
+    const rows = data.patients.map((p) => ({ ...p, clinic_id: clinicId }));
     const { error, count } = await supabase
       .from("patients")
       .insert(rows, { count: "exact" });

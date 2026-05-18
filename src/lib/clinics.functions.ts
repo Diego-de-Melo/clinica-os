@@ -102,7 +102,11 @@ export const updateClinic = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data }) => {
-    const patch: Record<string, unknown> = {};
+    const patch: {
+      name?: string;
+      status?: string;
+      expiration_date?: string | null;
+    } = {};
     if (data.name !== undefined) patch.name = data.name;
     if (data.status !== undefined) patch.status = data.status;
     if (data.expirationDate !== undefined)
