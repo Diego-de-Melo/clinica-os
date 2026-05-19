@@ -21,7 +21,7 @@ export type Database = {
           date: string
           id: string
           patient_id: string
-          payment_method: string
+          payment_method: string | null
           status: string
           value: number
         }
@@ -31,7 +31,7 @@ export type Database = {
           date: string
           id?: string
           patient_id: string
-          payment_method: string
+          payment_method?: string | null
           status?: string
           value: number
         }
@@ -41,7 +41,7 @@ export type Database = {
           date?: string
           id?: string
           patient_id?: string
-          payment_method?: string
+          payment_method?: string | null
           status?: string
           value?: number
         }
