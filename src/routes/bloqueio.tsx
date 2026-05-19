@@ -18,7 +18,7 @@ function BloqueioPage() {
   // se de repente estiver liberado, manda pro dashboard
   useEffect(() => {
     if (session && !session.isBlocked) {
-      navigate({ to: session.role === "super_admin" ? "/super-admin" : "/dashboard" });
+      navigate({ to: session.role === "super_admin" ? "/master-admin" : "/dashboard" });
     }
   }, [session, navigate]);
 

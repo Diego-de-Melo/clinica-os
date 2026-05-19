@@ -9,25 +9,19 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SuperAdminRouteImport } from './routes/super-admin'
-import { Route as SetupRouteImport } from './routes/setup'
+import { Route as MasterAdminRouteImport } from './routes/master-admin'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as BloqueioRouteImport } from './routes/bloqueio'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppPacientesRouteImport } from './routes/_app/pacientes'
+import { Route as AppEquipeRouteImport } from './routes/_app/equipe'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
-import { Route as AppConfiguracoesRouteImport } from './routes/_app/configuracoes'
 import { Route as AppPacientesIdRouteImport } from './routes/_app/pacientes.$id'
 
-const SuperAdminRoute = SuperAdminRouteImport.update({
-  id: '/super-admin',
-  path: '/super-admin',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SetupRoute = SetupRouteImport.update({
-  id: '/setup',
-  path: '/setup',
+const MasterAdminRoute = MasterAdminRouteImport.update({
+  id: '/master-admin',
+  path: '/master-admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -54,14 +48,14 @@ const AppPacientesRoute = AppPacientesRouteImport.update({
   path: '/pacientes',
   getParentRoute: () => AppRoute,
 } as any)
+const AppEquipeRoute = AppEquipeRouteImport.update({
+  id: '/equipe',
+  path: '/equipe',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppDashboardRoute = AppDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppConfiguracoesRoute = AppConfiguracoesRouteImport.update({
-  id: '/configuracoes',
-  path: '/configuracoes',
   getParentRoute: () => AppRoute,
 } as any)
 const AppPacientesIdRoute = AppPacientesIdRouteImport.update({
@@ -74,10 +68,9 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/bloqueio': typeof BloqueioRoute
   '/login': typeof LoginRoute
-  '/setup': typeof SetupRoute
-  '/super-admin': typeof SuperAdminRoute
-  '/configuracoes': typeof AppConfiguracoesRoute
+  '/master-admin': typeof MasterAdminRoute
   '/dashboard': typeof AppDashboardRoute
+  '/equipe': typeof AppEquipeRoute
   '/pacientes': typeof AppPacientesRouteWithChildren
   '/pacientes/$id': typeof AppPacientesIdRoute
 }
@@ -85,10 +78,9 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/bloqueio': typeof BloqueioRoute
   '/login': typeof LoginRoute
-  '/setup': typeof SetupRoute
-  '/super-admin': typeof SuperAdminRoute
-  '/configuracoes': typeof AppConfiguracoesRoute
+  '/master-admin': typeof MasterAdminRoute
   '/dashboard': typeof AppDashboardRoute
+  '/equipe': typeof AppEquipeRoute
   '/pacientes': typeof AppPacientesRouteWithChildren
   '/pacientes/$id': typeof AppPacientesIdRoute
 }
@@ -98,10 +90,9 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/bloqueio': typeof BloqueioRoute
   '/login': typeof LoginRoute
-  '/setup': typeof SetupRoute
-  '/super-admin': typeof SuperAdminRoute
-  '/_app/configuracoes': typeof AppConfiguracoesRoute
+  '/master-admin': typeof MasterAdminRoute
   '/_app/dashboard': typeof AppDashboardRoute
+  '/_app/equipe': typeof AppEquipeRoute
   '/_app/pacientes': typeof AppPacientesRouteWithChildren
   '/_app/pacientes/$id': typeof AppPacientesIdRoute
 }
@@ -111,10 +102,9 @@ export interface FileRouteTypes {
     | '/'
     | '/bloqueio'
     | '/login'
-    | '/setup'
-    | '/super-admin'
-    | '/configuracoes'
+    | '/master-admin'
     | '/dashboard'
+    | '/equipe'
     | '/pacientes'
     | '/pacientes/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -122,10 +112,9 @@ export interface FileRouteTypes {
     | '/'
     | '/bloqueio'
     | '/login'
-    | '/setup'
-    | '/super-admin'
-    | '/configuracoes'
+    | '/master-admin'
     | '/dashboard'
+    | '/equipe'
     | '/pacientes'
     | '/pacientes/$id'
   id:
@@ -134,10 +123,9 @@ export interface FileRouteTypes {
     | '/_app'
     | '/bloqueio'
     | '/login'
-    | '/setup'
-    | '/super-admin'
-    | '/_app/configuracoes'
+    | '/master-admin'
     | '/_app/dashboard'
+    | '/_app/equipe'
     | '/_app/pacientes'
     | '/_app/pacientes/$id'
   fileRoutesById: FileRoutesById
@@ -147,24 +135,16 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   BloqueioRoute: typeof BloqueioRoute
   LoginRoute: typeof LoginRoute
-  SetupRoute: typeof SetupRoute
-  SuperAdminRoute: typeof SuperAdminRoute
+  MasterAdminRoute: typeof MasterAdminRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/super-admin': {
-      id: '/super-admin'
-      path: '/super-admin'
-      fullPath: '/super-admin'
-      preLoaderRoute: typeof SuperAdminRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/setup': {
-      id: '/setup'
-      path: '/setup'
-      fullPath: '/setup'
-      preLoaderRoute: typeof SetupRouteImport
+    '/master-admin': {
+      id: '/master-admin'
+      path: '/master-admin'
+      fullPath: '/master-admin'
+      preLoaderRoute: typeof MasterAdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -202,18 +182,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppPacientesRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/equipe': {
+      id: '/_app/equipe'
+      path: '/equipe'
+      fullPath: '/equipe'
+      preLoaderRoute: typeof AppEquipeRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/dashboard': {
       id: '/_app/dashboard'
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AppDashboardRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/configuracoes': {
-      id: '/_app/configuracoes'
-      path: '/configuracoes'
-      fullPath: '/configuracoes'
-      preLoaderRoute: typeof AppConfiguracoesRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/pacientes/$id': {
@@ -239,14 +219,14 @@ const AppPacientesRouteWithChildren = AppPacientesRoute._addFileChildren(
 )
 
 interface AppRouteChildren {
-  AppConfiguracoesRoute: typeof AppConfiguracoesRoute
   AppDashboardRoute: typeof AppDashboardRoute
+  AppEquipeRoute: typeof AppEquipeRoute
   AppPacientesRoute: typeof AppPacientesRouteWithChildren
 }
 
 const AppRouteChildren: AppRouteChildren = {
-  AppConfiguracoesRoute: AppConfiguracoesRoute,
   AppDashboardRoute: AppDashboardRoute,
+  AppEquipeRoute: AppEquipeRoute,
   AppPacientesRoute: AppPacientesRouteWithChildren,
 }
 
@@ -257,9 +237,18 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   BloqueioRoute: BloqueioRoute,
   LoginRoute: LoginRoute,
-  SetupRoute: SetupRoute,
-  SuperAdminRoute: SuperAdminRoute,
+  MasterAdminRoute: MasterAdminRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

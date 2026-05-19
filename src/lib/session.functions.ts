@@ -1,15 +1,17 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+export type AppRole = "super_admin" | "admin" | "contador" | "usuario";
+
 export type SessionContext = {
   userId: string;
   email: string;
-  role: "super_admin" | "admin" | "user";
+  role: AppRole;
   clinicId: string | null;
   clinicStatus: "ativo" | "inativo" | null;
   clinicName: string | null;
   expirationDate: string | null;
-  isBlocked: boolean; // true se NÃO for super_admin e clinic vencida/inativa
+  isBlocked: boolean;
 };
 
 export const getSessionContext = createServerFn({ method: "GET" })
@@ -27,13 +29,8 @@ export const getSessionContext = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     if (!profile) {
       return {
-        userId,
-        email,
-        role: "user",
-        clinicId: null,
-        clinicStatus: null,
-        clinicName: null,
-        expirationDate: null,
+        userId, email, role: "usuario",
+        clinicId: null, clinicStatus: null, clinicName: null, expirationDate: null,
         isBlocked: true,
       };
     }
@@ -55,24 +52,19 @@ export const getSessionContext = createServerFn({ method: "GET" })
       }
     }
 
-    const isSuperAdmin = profile.role === "super_admin";
-    const expired = expirationDate
-      ? new Date(expirationDate).getTime() < Date.now()
-      : false;
+    // Normaliza role antigo "user" → "usuario"
+    const rawRole = profile.role as string;
+    const role: AppRole = (rawRole === "user" ? "usuario" : rawRole) as AppRole;
+
+    const isSuperAdmin = role === "super_admin";
+    const expired = expirationDate ? new Date(expirationDate).getTime() < Date.now() : false;
     const isBlocked =
       !isSuperAdmin &&
-      (profile.clinic_id == null ||
-        clinicStatus !== "ativo" ||
-        expired);
+      (profile.clinic_id == null || clinicStatus !== "ativo" || expired);
 
     return {
-      userId,
-      email,
-      role: profile.role as "super_admin" | "admin" | "user",
+      userId, email, role,
       clinicId: profile.clinic_id,
-      clinicStatus,
-      clinicName,
-      expirationDate,
-      isBlocked,
+      clinicStatus, clinicName, expirationDate, isBlocked,
     };
   });

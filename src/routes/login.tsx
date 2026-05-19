@@ -1,11 +1,12 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Loader2, Stethoscope } from "lucide-react";
+import { Loader2, MessageCircle, Stethoscope } from "lucide-react";
+import { WHATSAPP_SUPPORT_NUMBER } from "@/lib/constants";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -78,12 +79,14 @@ function LoginPage() {
               Entrar
             </Button>
           </form>
-          <p className="mt-6 text-center text-xs text-muted-foreground">
-            Primeira instalação?{" "}
-            <Link to="/setup" className="text-primary hover:underline">
-              Configurar Super Admin
-            </Link>
-          </p>
+          <a
+            href={`https://wa.me/${WHATSAPP_SUPPORT_NUMBER}?text=${encodeURIComponent("Olá, gostaria de criar uma conta no ClinicaSaaS.")}`}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-6 flex items-center justify-center gap-2 text-xs text-muted-foreground hover:text-foreground"
+          >
+            <MessageCircle className="h-3.5 w-3.5" /> Quero criar uma conta
+          </a>
         </div>
       </div>
     </div>
