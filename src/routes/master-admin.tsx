@@ -26,7 +26,7 @@ import {
   Plus, Loader2, ShieldCheck, MoreHorizontal, Trash2, Power, CalendarDays, LogOut,
 } from "lucide-react";
 
-export const Route = createFileRoute("/super-admin")({
+export const Route = createFileRoute("/master-admin")({
   beforeLoad: async () => {
     if (typeof window === "undefined") return;
     const { data } = await supabase.auth.getSession();
