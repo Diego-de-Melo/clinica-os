@@ -32,7 +32,7 @@ export const Route = createFileRoute("/master-admin")({
     const { data } = await supabase.auth.getSession();
     if (!data.session) throw redirect({ to: "/login" });
   },
-  head: () => ({ meta: [{ title: "Super Admin — ClinicaSaaS" }, { name: "robots", content: "noindex, nofollow" }] }),
+  head: () => ({ meta: [{ title: "Master Admin — ClinicaSaaS" }, { name: "robots", content: "noindex, nofollow" }] }),
   component: SuperAdminPage,
 });
 
