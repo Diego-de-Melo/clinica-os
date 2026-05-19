@@ -64,7 +64,7 @@ function AppLayout() {
   const navItems = [
     { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
     { title: "Pacientes", url: "/pacientes", icon: Users },
-    ...(isAdmin ? [{ title: "Configurações", url: "/configuracoes", icon: Settings }] : []),
+    ...(isAdmin ? [{ title: "Equipe", url: "/equipe", icon: Settings }] : []),
   ];
 
   const isActive = (url: string) => pathname === url || pathname.startsWith(url + "/");
@@ -111,10 +111,10 @@ function AppLayout() {
                 <SidebarGroupContent>
                   <SidebarMenu>
                     <SidebarMenuItem>
-                      <SidebarMenuButton asChild isActive={isActive("/super-admin")} tooltip="Super Admin">
-                        <Link to="/super-admin" className="flex items-center gap-2">
+                      <SidebarMenuButton asChild isActive={isActive("/master-admin")} tooltip="Master Admin">
+                        <Link to="/master-admin" className="flex items-center gap-2">
                           <ShieldCheck className="h-4 w-4" />
-                          <span>Super Admin</span>
+                          <span>Master Admin</span>
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
