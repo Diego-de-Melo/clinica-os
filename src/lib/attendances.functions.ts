@@ -2,6 +2,16 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+export const ATTENDANCE_STATUSES = [
+  "Pendente",
+  "CPF Inválido",
+  "Corrigido",
+  "Emitido",
+] as const;
+export type AttendanceStatus = (typeof ATTENDANCE_STATUSES)[number];
+
+const statusEnum = z.enum(ATTENDANCE_STATUSES);
+
 export const listAttendances = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -19,8 +29,8 @@ const attInput = z.object({
   patient_id: z.string().uuid(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   value: z.number().positive().max(1_000_000),
-  payment_method: z.enum(["Pix", "Dinheiro"]),
-  status: z.enum(["Pendente", "Emitido"]).default("Pendente"),
+  payment_method: z.string().trim().max(40).nullable().optional(),
+  status: statusEnum.default("Pendente"),
 });
 
 export const createAttendance = createServerFn({ method: "POST" })
@@ -30,10 +40,13 @@ export const createAttendance = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const { data: prof } = await supabase
       .from("profiles")
-      .select("clinic_id")
+      .select("clinic_id, role")
       .eq("id", userId)
       .maybeSingle();
     if (!prof?.clinic_id) throw new Error("Sem clínica associada");
+    if (prof.role !== "admin" && prof.role !== "contador") {
+      throw new Error("Apenas Admin ou Contador podem registrar atendimentos");
+    }
     const { data: row, error } = await supabase
       .from("attendances")
       .insert({ ...data, clinic_id: prof.clinic_id })
@@ -46,12 +59,7 @@ export const createAttendance = createServerFn({ method: "POST" })
 export const updateAttendanceStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
-    z
-      .object({
-        id: z.string().uuid(),
-        status: z.enum(["Pendente", "Emitido"]),
-      })
-      .parse(input),
+    z.object({ id: z.string().uuid(), status: statusEnum }).parse(input),
   )
   .handler(async ({ context, data }) => {
     const { error } = await context.supabase

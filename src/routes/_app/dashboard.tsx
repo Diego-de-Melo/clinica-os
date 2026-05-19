@@ -2,8 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { listAttendances, updateAttendanceStatus, createAttendance } from "@/lib/attendances.functions";
+import {
+  listAttendances, updateAttendanceStatus, createAttendance,
+  ATTENDANCE_STATUSES, type AttendanceStatus,
+} from "@/lib/attendances.functions";
 import { listPatients } from "@/lib/patients.functions";
+import { useSession } from "@/hooks/use-session";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -18,17 +22,27 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { CheckCircle2, Loader2, Plus } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 
 export const Route = createFileRoute("/_app/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — ClinicaSaaS" }, { name: "robots", content: "noindex, nofollow" }] }),
   component: DashboardPage,
 });
 
+const STATUS_STYLES: Record<AttendanceStatus, string> = {
+  "Pendente": "bg-slate-200 text-slate-700",
+  "CPF Inválido": "bg-destructive/15 text-destructive",
+  "Corrigido": "bg-amber-100 text-amber-800",
+  "Emitido": "bg-success/15 text-success",
+};
+
 function DashboardPage() {
   const qc = useQueryClient();
+  const { data: session } = useSession();
   const listFn = useServerFn(listAttendances);
   const updateFn = useServerFn(updateAttendanceStatus);
+
+  const canEdit = session?.role === "admin" || session?.role === "contador";
 
   const { data, isLoading } = useQuery({
     queryKey: ["attendances"],
@@ -36,9 +50,10 @@ function DashboardPage() {
   });
 
   const updateMut = useMutation({
-    mutationFn: (id: string) => updateFn({ data: { id, status: "Emitido" } }),
+    mutationFn: ({ id, status }: { id: string; status: AttendanceStatus }) =>
+      updateFn({ data: { id, status } }),
     onSuccess: () => {
-      toast.success("Atendimento marcado como Emitido");
+      toast.success("Status atualizado");
       qc.invalidateQueries({ queryKey: ["attendances"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Erro"),
@@ -47,6 +62,7 @@ function DashboardPage() {
   const rows = data ?? [];
   const total = rows.reduce((s, r) => s + Number(r.value), 0);
   const pendentes = rows.filter((r) => r.status === "Pendente").length;
+  const invalidos = rows.filter((r) => r.status === "CPF Inválido").length;
   const emitidos = rows.filter((r) => r.status === "Emitido").length;
 
   return (
@@ -54,14 +70,17 @@ function DashboardPage() {
       <div className="flex items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">Atendimentos recentes da clínica.</p>
+          <p className="text-sm text-muted-foreground">Atendimentos e fluxo de faturamento da clínica.</p>
         </div>
-        <NewAttendanceDialog onCreated={() => qc.invalidateQueries({ queryKey: ["attendances"] })} />
+        {canEdit && (
+          <NewAttendanceDialog onCreated={() => qc.invalidateQueries({ queryKey: ["attendances"] })} />
+        )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard label="Total faturado" value={total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} />
-        <StatCard label="Pendentes" value={String(pendentes)} accent="warning" />
+        <StatCard label="Pendentes" value={String(pendentes)} />
+        <StatCard label="CPF Inválido" value={String(invalidos)} accent="destructive" />
         <StatCard label="Emitidos" value={String(emitidos)} accent="success" />
       </div>
 
@@ -76,44 +95,49 @@ function DashboardPage() {
               <TableHead>Data</TableHead>
               <TableHead>Valor</TableHead>
               <TableHead>Pagamento</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Ação</TableHead>
+              <TableHead className="w-[200px]">Status</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
-              <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Carregando…</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Carregando…</TableCell></TableRow>
             )}
             {!isLoading && rows.length === 0 && (
-              <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhum atendimento ainda.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Nenhum atendimento ainda.</TableCell></TableRow>
             )}
-            {rows.map((r) => (
-              <TableRow key={r.id}>
-                <TableCell className="font-medium">{r.patient?.name ?? "—"}</TableCell>
-                <TableCell>{new Date(r.date).toLocaleDateString("pt-BR")}</TableCell>
-                <TableCell>{Number(r.value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</TableCell>
-                <TableCell>{r.payment_method}</TableCell>
-                <TableCell>
-                  {r.status === "Emitido" ? (
-                    <Badge className="bg-success/15 text-success hover:bg-success/15 border-0">Emitido</Badge>
-                  ) : (
-                    <Badge className="bg-warning/15 text-warning hover:bg-warning/15 border-0">Pendente</Badge>
-                  )}
-                </TableCell>
-                <TableCell className="text-right">
-                  {r.status === "Pendente" && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={updateMut.isPending}
-                      onClick={() => updateMut.mutate(r.id)}
-                    >
-                      <CheckCircle2 className="h-4 w-4" /> Marcar como Emitido
-                    </Button>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
+            {rows.map((r) => {
+              const status = r.status as AttendanceStatus;
+              return (
+                <TableRow key={r.id}>
+                  <TableCell className="font-medium">{r.patient?.name ?? "—"}</TableCell>
+                  <TableCell>{new Date(r.date).toLocaleDateString("pt-BR")}</TableCell>
+                  <TableCell>{Number(r.value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</TableCell>
+                  <TableCell className="text-muted-foreground">{r.payment_method ?? "—"}</TableCell>
+                  <TableCell>
+                    {canEdit ? (
+                      <Select
+                        value={status}
+                        onValueChange={(v) => updateMut.mutate({ id: r.id, status: v as AttendanceStatus })}
+                        disabled={updateMut.isPending}
+                      >
+                        <SelectTrigger className="h-8 w-[170px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {ATTENDANCE_STATUSES.map((s) => (
+                            <SelectItem key={s} value={s}>{s}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Badge className={`${STATUS_STYLES[status]} hover:${STATUS_STYLES[status]} border-0`}>
+                        {status}
+                      </Badge>
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>
@@ -121,9 +145,14 @@ function DashboardPage() {
   );
 }
 
-function StatCard({ label, value, accent }: { label: string; value: string; accent?: "success" | "warning" }) {
+function StatCard({
+  label, value, accent,
+}: { label: string; value: string; accent?: "success" | "warning" | "destructive" }) {
   const color =
-    accent === "success" ? "text-success" : accent === "warning" ? "text-warning" : "text-foreground";
+    accent === "success" ? "text-success"
+    : accent === "warning" ? "text-warning"
+    : accent === "destructive" ? "text-destructive"
+    : "text-foreground";
   return (
     <div className="rounded-xl border bg-card p-5">
       <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
@@ -145,7 +174,7 @@ function NewAttendanceDialog({ onCreated }: { onCreated: () => void }) {
   const [patientId, setPatientId] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [value, setValue] = useState("");
-  const [method, setMethod] = useState<"Pix" | "Dinheiro">("Pix");
+  const [method, setMethod] = useState<string>("");
   const [loading, setLoading] = useState(false);
 
   async function submit(e: React.FormEvent) {
@@ -156,11 +185,15 @@ function NewAttendanceDialog({ onCreated }: { onCreated: () => void }) {
     setLoading(true);
     try {
       await createFn({
-        data: { patient_id: patientId, date, value: num, payment_method: method, status: "Pendente" },
+        data: {
+          patient_id: patientId, date, value: num,
+          payment_method: method || null,
+          status: "Pendente",
+        },
       });
       toast.success("Atendimento registrado");
       setOpen(false);
-      setPatientId(""); setValue("");
+      setPatientId(""); setValue(""); setMethod("");
       onCreated();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro");
@@ -199,14 +232,14 @@ function NewAttendanceDialog({ onCreated }: { onCreated: () => void }) {
             </div>
           </div>
           <div className="space-y-2">
-            <Label>Método de pagamento</Label>
-            <Select value={method} onValueChange={(v) => setMethod(v as "Pix" | "Dinheiro")}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Pix">Pix</SelectItem>
-                <SelectItem value="Dinheiro">Dinheiro</SelectItem>
-              </SelectContent>
-            </Select>
+            <Label>Método de pagamento (opcional)</Label>
+            <Input
+              type="text"
+              placeholder="Ex.: Pix, Dinheiro, Cartão…"
+              value={method}
+              onChange={(e) => setMethod(e.target.value)}
+              maxLength={40}
+            />
           </div>
           <DialogFooter>
             <Button type="submit" disabled={loading}>

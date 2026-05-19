@@ -3,7 +3,6 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
-// Only the clinic admin (or super_admin) may manage team
 const requireClinicAdmin = createMiddleware({ type: "function" })
   .middleware([requireSupabaseAuth])
   .server(async ({ next, context }) => {
@@ -41,7 +40,7 @@ export const createTeamMember = createServerFn({ method: "POST" })
       .object({
         email: z.string().email(),
         password: z.string().min(8).max(72),
-        role: z.enum(["admin", "user"]).default("user"),
+        role: z.enum(["admin", "contador", "usuario"]).default("usuario"),
       })
       .parse(input),
   )
@@ -60,8 +59,7 @@ export const createTeamMember = createServerFn({ method: "POST" })
 export const deleteTeamMember = createServerFn({ method: "POST" })
   .middleware([requireClinicAdmin])
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
-  .handler(async ({ context, data, ...rest }) => {
-    // ensure member belongs to same clinic
+  .handler(async ({ context, data }) => {
     const { data: target } = await supabaseAdmin
       .from("profiles")
       .select("clinic_id, id")

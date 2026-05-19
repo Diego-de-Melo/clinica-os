@@ -57,10 +57,11 @@ export const createPatient = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const { data: prof } = await supabase
       .from("profiles")
-      .select("clinic_id")
+      .select("clinic_id, role")
       .eq("id", userId)
       .maybeSingle();
     if (!prof?.clinic_id) throw new Error("Sem clínica associada");
+    if (prof.role !== "admin") throw new Error("Apenas Admin pode cadastrar pacientes");
     const { data: row, error } = await supabase
       .from("patients")
       .insert({ ...data, clinic_id: prof.clinic_id })

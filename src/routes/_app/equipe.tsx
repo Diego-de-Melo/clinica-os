@@ -15,17 +15,26 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Plus, Loader2, Trash2 } from "lucide-react";
 
-export const Route = createFileRoute("/_app/configuracoes")({
-  head: () => ({ meta: [{ title: "Configurações — ClinicaSaaS" }, { name: "robots", content: "noindex, nofollow" }] }),
-  component: ConfigPage,
+export const Route = createFileRoute("/_app/equipe")({
+  head: () => ({ meta: [{ title: "Equipe — ClinicaSaaS" }, { name: "robots", content: "noindex, nofollow" }] }),
+  component: EquipePage,
 });
 
-function ConfigPage() {
+type Role = "admin" | "contador" | "usuario";
+const ROLE_LABELS: Record<string, string> = {
+  admin: "Admin",
+  contador: "Contador",
+  usuario: "Usuário",
+  user: "Usuário",
+  super_admin: "Super Admin",
+};
+
+function EquipePage() {
   const { data: session } = useSession();
   const qc = useQueryClient();
   const listFn = useServerFn(listTeam);
@@ -44,7 +53,7 @@ function ConfigPage() {
       <div className="flex items-end justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Equipe da clínica</h1>
-          <p className="text-sm text-muted-foreground">Gerencie quem tem acesso ao sistema.</p>
+          <p className="text-sm text-muted-foreground">Convide e defina níveis de acesso.</p>
         </div>
         <NewMemberDialog onDone={() => qc.invalidateQueries({ queryKey: ["team"] })} />
       </div>
@@ -65,7 +74,7 @@ function ConfigPage() {
               <TableRow key={m.id}>
                 <TableCell className="font-medium">{m.email}</TableCell>
                 <TableCell>
-                  <Badge variant="outline" className="capitalize">{m.role}</Badge>
+                  <Badge variant="outline">{ROLE_LABELS[m.role] ?? m.role}</Badge>
                 </TableCell>
                 <TableCell className="text-muted-foreground">{new Date(m.created_at).toLocaleDateString("pt-BR")}</TableCell>
                 <TableCell className="text-right">
@@ -92,7 +101,7 @@ function NewMemberDialog({ onDone }: { onDone: () => void }) {
   const fn = useServerFn(createTeamMember);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"admin" | "user">("user");
+  const [role, setRole] = useState<Role>("usuario");
   const [loading, setLoading] = useState(false);
 
   async function submit(e: React.FormEvent) {
@@ -102,7 +111,7 @@ function NewMemberDialog({ onDone }: { onDone: () => void }) {
       await fn({ data: { email, password, role } });
       toast.success("Membro adicionado");
       setOpen(false);
-      setEmail(""); setPassword(""); setRole("user");
+      setEmail(""); setPassword(""); setRole("usuario");
       onDone();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro");
@@ -115,17 +124,21 @@ function NewMemberDialog({ onDone }: { onDone: () => void }) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild><Button><Plus className="h-4 w-4" /> Adicionar membro</Button></DialogTrigger>
       <DialogContent>
-        <DialogHeader><DialogTitle>Adicionar membro</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>Adicionar membro</DialogTitle>
+          <DialogDescription>Crie o acesso e defina o nível de permissão.</DialogDescription>
+        </DialogHeader>
         <form onSubmit={submit} className="space-y-4">
           <div className="space-y-2"><Label>Email</Label><Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></div>
           <div className="space-y-2"><Label>Senha (mín. 8)</Label><Input type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} /></div>
           <div className="space-y-2">
             <Label>Papel</Label>
-            <Select value={role} onValueChange={(v) => setRole(v as "admin" | "user")}>
+            <Select value={role} onValueChange={(v) => setRole(v as Role)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="user">Usuário (recepção)</SelectItem>
-                <SelectItem value="admin">Admin da clínica</SelectItem>
+                <SelectItem value="usuario">Usuário — somente leitura</SelectItem>
+                <SelectItem value="contador">Contador — edita status de atendimentos</SelectItem>
+                <SelectItem value="admin">Admin — controle total da clínica</SelectItem>
               </SelectContent>
             </Select>
           </div>

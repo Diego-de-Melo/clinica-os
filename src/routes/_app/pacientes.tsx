@@ -53,7 +53,7 @@ function PacientesPage() {
         </div>
         <div className="flex items-center gap-2">
           {isAdmin && <ImportCsvDialog onDone={() => qc.invalidateQueries({ queryKey: ["patients"] })} />}
-          <NewPatientDialog onCreated={() => qc.invalidateQueries({ queryKey: ["patients"] })} />
+          {isAdmin && <NewPatientDialog onCreated={() => qc.invalidateQueries({ queryKey: ["patients"] })} />}
         </div>
       </div>
 

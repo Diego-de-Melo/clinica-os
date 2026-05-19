@@ -21,7 +21,7 @@ export type Database = {
           date: string
           id: string
           patient_id: string
-          payment_method: string
+          payment_method: string | null
           status: string
           value: number
         }
@@ -31,7 +31,7 @@ export type Database = {
           date: string
           id?: string
           patient_id: string
-          payment_method: string
+          payment_method?: string | null
           status?: string
           value: number
         }
@@ -41,7 +41,7 @@ export type Database = {
           date?: string
           id?: string
           patient_id?: string
-          payment_method?: string
+          payment_method?: string | null
           status?: string
           value?: number
         }
@@ -170,7 +170,7 @@ export type Database = {
       is_super_admin: { Args: never; Returns: boolean }
     }
     Enums: {
-      app_role: "super_admin" | "admin" | "user"
+      app_role: "super_admin" | "admin" | "user" | "contador" | "usuario"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -298,7 +298,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["super_admin", "admin", "user"],
+      app_role: ["super_admin", "admin", "user", "contador", "usuario"],
     },
   },
 } as const
