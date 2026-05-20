@@ -149,4 +149,9 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
   }
+
+  /* Badge "Edit with Lovable" — só aparece em dev (lovable-tagger) */
+  #lovable-badge {
+    display: none !important;
+  }
 }
