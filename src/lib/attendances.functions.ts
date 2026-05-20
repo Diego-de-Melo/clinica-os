@@ -6,6 +6,7 @@ import {
   assertStaffRole,
   requireClinicProfile,
 } from "@/lib/auth-guards";
+void assertStaffRole;
 
 export const ATTENDANCE_STATUSES = [
   "Pendente",
