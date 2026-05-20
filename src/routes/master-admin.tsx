@@ -314,14 +314,14 @@ function LifecycleBadge({ lifecycle }: { lifecycle: ClinicLifecycle }) {
   return <Badge className="bg-slate-200 text-slate-700 border-0">Inativa</Badge>;
 }
 
-function EditExpirationItem({ current, onSave }: { current: string | null; onSave: (iso: string) => void }) {
+function EditExpirationButton({ current, onSave }: { current: string | null; onSave: (iso: string) => void }) {
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState(current ? current.slice(0, 10) : "");
   return (
     <>
-      <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setOpen(true); }}>
-        <CalendarDays className="h-4 w-4" /> Definir vencimento…
-      </DropdownMenuItem>
+      <Button variant="ghost" size="sm" title="Definir vencimento" onClick={() => setOpen(true)}>
+        <CalendarDays className="h-4 w-4" />
+      </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Definir vencimento</DialogTitle></DialogHeader>
@@ -332,6 +332,75 @@ function EditExpirationItem({ current, onSave }: { current: string | null; onSav
           <DialogFooter>
             <Button onClick={() => { if (value) { onSave(new Date(value + "T23:59:59").toISOString()); setOpen(false); } }}>Salvar</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+type ClinicRow = {
+  id: string;
+  name: string;
+  status: string;
+  expiration_date: string | null;
+};
+
+function EditClinicButton({
+  clinic,
+  onSave,
+}: {
+  clinic: ClinicRow;
+  onSave: (patch: { name?: string; status?: "ativo" | "inativo"; expirationDate?: string | null }) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState(clinic.name);
+  const [status, setStatus] = useState<"ativo" | "inativo">(clinic.status === "ativo" ? "ativo" : "inativo");
+  const [expiration, setExpiration] = useState(clinic.expiration_date ? clinic.expiration_date.slice(0, 10) : "");
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    onSave({
+      name,
+      status,
+      expirationDate: expiration ? new Date(expiration + "T23:59:59").toISOString() : null,
+    });
+    setOpen(false);
+  }
+
+  return (
+    <>
+      <Button variant="ghost" size="sm" title="Editar clínica" onClick={() => setOpen(true)}>
+        <Pencil className="h-4 w-4" />
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Editar clínica</DialogTitle></DialogHeader>
+          <form onSubmit={submit} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Nome</Label>
+              <Input required minLength={2} value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value as "ativo" | "inativo")}
+                  className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                >
+                  <option value="ativo">Ativo</option>
+                  <option value="inativo">Inativo</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Vencimento</Label>
+                <Input type="date" value={expiration} onChange={(e) => setExpiration(e.target.value)} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="submit">Salvar</Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </>
