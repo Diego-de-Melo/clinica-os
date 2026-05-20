@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import {
-  listAttendances, updateAttendanceStatus, createAttendance,
+  listAttendances, updateAttendanceStatus, createAttendance, deleteAttendance,
   ATTENDANCE_STATUSES, type AttendanceStatus,
 } from "@/lib/attendances.functions";
 import { listPatients } from "@/lib/patients.functions";
@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/select";
 import { APP_NAME } from "@/lib/constants";
 import { toast } from "sonner";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Plus, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/_app/dashboard")({
   head: () => ({
@@ -44,8 +44,14 @@ function DashboardPage() {
   const { data: session } = useSession();
   const listFn = useServerFn(listAttendances);
   const updateFn = useServerFn(updateAttendanceStatus);
+  const deleteFn = useServerFn(deleteAttendance);
 
-  const canEdit = session?.role === "admin" || session?.role === "contador";
+  const isAdmin = session?.role === "admin";
+  const isContador = session?.role === "contador";
+  const canEdit = isAdmin || isContador;
+  const statusOptions = isContador
+    ? (["Pendente", "CPF Inválido", "Emitido"] as AttendanceStatus[])
+    : (ATTENDANCE_STATUSES as readonly AttendanceStatus[]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["attendances"],
@@ -57,6 +63,15 @@ function DashboardPage() {
       updateFn({ data: { id, status } }),
     onSuccess: () => {
       toast.success("Status atualizado");
+      qc.invalidateQueries({ queryKey: ["attendances"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Erro"),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => deleteFn({ data: { id } }),
+    onSuccess: () => {
+      toast.success("Atendimento removido");
       qc.invalidateQueries({ queryKey: ["attendances"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Erro"),
@@ -75,7 +90,7 @@ function DashboardPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
           <p className="text-sm text-muted-foreground">Atendimentos e fluxo de faturamento da clínica.</p>
         </div>
-        {canEdit && (
+        {isAdmin && (
           <NewAttendanceDialog onCreated={() => qc.invalidateQueries({ queryKey: ["attendances"] })} />
         )}
       </div>
@@ -99,14 +114,15 @@ function DashboardPage() {
               <TableHead>Valor</TableHead>
               <TableHead>Pagamento</TableHead>
               <TableHead className="w-[200px]">Status</TableHead>
+              <TableHead className="w-[80px] text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
-              <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Carregando…</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Carregando…</TableCell></TableRow>
             )}
             {!isLoading && rows.length === 0 && (
-              <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Nenhum atendimento ainda.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhum atendimento ainda.</TableCell></TableRow>
             )}
             {rows.map((r) => {
               const status = r.status as AttendanceStatus;
@@ -127,7 +143,7 @@ function DashboardPage() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {ATTENDANCE_STATUSES.map((s) => (
+                          {statusOptions.map((s) => (
                             <SelectItem key={s} value={s}>{s}</SelectItem>
                           ))}
                         </SelectContent>
@@ -136,6 +152,17 @@ function DashboardPage() {
                       <Badge className={`${STATUS_STYLES[status]} hover:${STATUS_STYLES[status]} border-0`}>
                         {status}
                       </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {isAdmin && (
+                      <Button
+                        variant="ghost" size="sm"
+                        onClick={() => { if (confirm("Remover este atendimento?")) deleteMut.mutate(r.id); }}
+                        disabled={deleteMut.isPending}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
                     )}
                   </TableCell>
                 </TableRow>

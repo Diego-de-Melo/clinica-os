@@ -25,17 +25,13 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import {
   Plus,
   Loader2,
   ShieldCheck,
-  MoreHorizontal,
   Trash2,
-  Power,
   CalendarDays,
   LogOut,
   Search,
@@ -43,6 +39,8 @@ import {
   CheckCircle2,
   XCircle,
   AlertTriangle,
+  RefreshCw,
+  Pencil,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -214,32 +212,46 @@ function SuperAdminPage() {
                     </TableCell>
                     <TableCell className="text-muted-foreground">{new Date(c.created_at).toLocaleDateString("pt-BR")}</TableCell>
                     <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => updMut.mutate({ id: c.id, status: c.status === "ativo" ? "inativo" : "ativo" })}>
-                            <Power className="h-4 w-4" /> {c.status === "ativo" ? "Desativar" : "Ativar"}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => {
-                            const d = new Date(); d.setDate(d.getDate() + 30);
-                            updMut.mutate({ id: c.id, expirationDate: d.toISOString(), status: "ativo" });
-                          }}>
-                            <CalendarDays className="h-4 w-4" /> Renovar +30 dias
-                          </DropdownMenuItem>
-                          <EditExpirationItem
-                            current={c.expiration_date}
-                            onSave={(iso) => updMut.mutate({ id: c.id, expirationDate: iso })}
+                      <div className="inline-flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 pr-2 border-r mr-1">
+                          <Switch
+                            checked={c.status === "ativo"}
+                            onCheckedChange={(v) => updMut.mutate({ id: c.id, status: v ? "ativo" : "inativo" })}
+                            aria-label={c.status === "ativo" ? "Desativar" : "Ativar"}
                           />
-                          <DropdownMenuItem
-                            className="text-destructive"
-                            onClick={() => { if (confirm(`Remover clínica "${c.name}" e todos os usuários?`)) delMut.mutate(c.id); }}
-                          >
-                            <Trash2 className="h-4 w-4" /> Remover
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                          <span className="text-xs text-muted-foreground w-12">
+                            {c.status === "ativo" ? "Ativo" : "Inativo"}
+                          </span>
+                        </div>
+                        <Button
+                          variant="ghost" size="sm"
+                          title="Renovar +30 dias"
+                          onClick={() => {
+                            const now = Date.now();
+                            const current = c.expiration_date ? new Date(c.expiration_date).getTime() : 0;
+                            const base = new Date(Math.max(now, current));
+                            base.setDate(base.getDate() + 30);
+                            updMut.mutate({ id: c.id, expirationDate: base.toISOString(), status: "ativo" });
+                          }}
+                        >
+                          <RefreshCw className="h-4 w-4" /> +30d
+                        </Button>
+                        <EditExpirationButton
+                          current={c.expiration_date}
+                          onSave={(iso) => updMut.mutate({ id: c.id, expirationDate: iso })}
+                        />
+                        <EditClinicButton
+                          clinic={c}
+                          onSave={(patch) => updMut.mutate({ id: c.id, ...patch })}
+                        />
+                        <Button
+                          variant="ghost" size="sm"
+                          title="Remover clínica"
+                          onClick={() => { if (confirm(`Remover clínica "${c.name}" e todos os usuários?`)) delMut.mutate(c.id); }}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
@@ -302,14 +314,14 @@ function LifecycleBadge({ lifecycle }: { lifecycle: ClinicLifecycle }) {
   return <Badge className="bg-slate-200 text-slate-700 border-0">Inativa</Badge>;
 }
 
-function EditExpirationItem({ current, onSave }: { current: string | null; onSave: (iso: string) => void }) {
+function EditExpirationButton({ current, onSave }: { current: string | null; onSave: (iso: string) => void }) {
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState(current ? current.slice(0, 10) : "");
   return (
     <>
-      <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setOpen(true); }}>
-        <CalendarDays className="h-4 w-4" /> Definir vencimento…
-      </DropdownMenuItem>
+      <Button variant="ghost" size="sm" title="Definir vencimento" onClick={() => setOpen(true)}>
+        <CalendarDays className="h-4 w-4" />
+      </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Definir vencimento</DialogTitle></DialogHeader>
@@ -320,6 +332,75 @@ function EditExpirationItem({ current, onSave }: { current: string | null; onSav
           <DialogFooter>
             <Button onClick={() => { if (value) { onSave(new Date(value + "T23:59:59").toISOString()); setOpen(false); } }}>Salvar</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+type ClinicRow = {
+  id: string;
+  name: string;
+  status: string;
+  expiration_date: string | null;
+};
+
+function EditClinicButton({
+  clinic,
+  onSave,
+}: {
+  clinic: ClinicRow;
+  onSave: (patch: { name?: string; status?: "ativo" | "inativo"; expirationDate?: string | null }) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState(clinic.name);
+  const [status, setStatus] = useState<"ativo" | "inativo">(clinic.status === "ativo" ? "ativo" : "inativo");
+  const [expiration, setExpiration] = useState(clinic.expiration_date ? clinic.expiration_date.slice(0, 10) : "");
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    onSave({
+      name,
+      status,
+      expirationDate: expiration ? new Date(expiration + "T23:59:59").toISOString() : null,
+    });
+    setOpen(false);
+  }
+
+  return (
+    <>
+      <Button variant="ghost" size="sm" title="Editar clínica" onClick={() => setOpen(true)}>
+        <Pencil className="h-4 w-4" />
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Editar clínica</DialogTitle></DialogHeader>
+          <form onSubmit={submit} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Nome</Label>
+              <Input required minLength={2} value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value as "ativo" | "inativo")}
+                  className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                >
+                  <option value="ativo">Ativo</option>
+                  <option value="inativo">Inativo</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Vencimento</Label>
+                <Input type="date" value={expiration} onChange={(e) => setExpiration(e.target.value)} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="submit">Salvar</Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </>

@@ -1,87 +1,50 @@
-# Plano — Adaptação ao Super Prompt expandido
+## Mudanças solicitadas
 
-O projeto atual já implementa ~70% do escopo (auth, multi-tenant, RLS, bloqueio por vencimento, super-admin, CRUD pacientes, CSV, equipe). Este plano cobre apenas as **diferenças** entre o que está em produção e o novo Super Prompt.
+### 1. Contador — restrições
+- Esconder o botão "Novo atendimento" no `/dashboard` para `contador` (só `admin` cria atendimentos).
+- Backend `createAttendance`: trocar `assertStaffRole` por `assertAdminRole` (somente admin insere).
+- No dropdown de status do Dashboard, quando o usuário for `contador`, mostrar apenas `Pendente`, `CPF Inválido`, `Emitido` (ocultar `Corrigido`). Admin continua vendo todos.
 
-## 1. Hierarquia de 4 níveis (hoje só há 3)
+### 2. Ações em linha (Inline / Direct Toggle)
+Substituir os menus `DropdownMenu` por botões/toggles diretos visíveis na linha:
 
-Adicionar role `contador`. Enum final: `super_admin | admin | contador | usuario` (renomeia `user` → `usuario`).
+**`/master-admin` — tabela de clínicas:** trocar o "⋯" por uma barra de ações inline:
+- Switch (Direct Toggle) para Ativo/Inativo
+- Botão "Renovar +30"
+- Botão "Vencimento" (abre dialog de data)
+- Botão "Editar" (novo — item 4)
+- Botão "Remover" (ícone lixeira, com confirm)
 
-Permissões:
-| Ação | super_admin | admin | contador | usuario |
-|---|---|---|---|---|
-| Ver pacientes/atendimentos | ❌ (LGPD) | ✅ | ✅ | ✅ |
-| Criar/editar pacientes | ❌ | ✅ | ❌ | ❌ |
-| Apagar pacientes | ❌ | ✅ | ❌ | ❌ |
-| Criar atendimento | ❌ | ✅ | ✅ | ❌ |
-| Alterar status atendimento | ❌ | ✅ | ✅ | ❌ |
-| Apagar atendimento | ❌ | ✅ | ❌ | ❌ |
-| Importar CSV / Equipe | ❌ | ✅ | ❌ | ❌ |
+**`/pacientes`:** já é inline — manter, só adicionar botão "Editar" se aplicável (não solicitado para admin neste item).
 
-## 2. LGPD: Super Admin sem acesso a dados clínicos
+**`/equipe`:** se houver dropdown de papel/remoção, transformar em select inline + botão remover (verificar arquivo no momento da implementação).
 
-Hoje as policies de `patients`/`attendances` só permitem `clinic_id = current_clinic_id()`. Como super_admin tem `clinic_id = NULL`, `current_clinic_id()` retorna NULL e o `=` falha → já está bloqueado naturalmente. **Adicionar assert explícito** nas policies (`current_clinic_id() IS NOT NULL`) para deixar a intenção explícita e à prova de regressão.
+### 3. Dashboard — ação e status
+- Manter coluna Status já existente.
+- Adicionar nova coluna **Ações** ao final da tabela `/dashboard`:
+  - Admin: ícone lixeira (remove atendimento via `deleteAttendance` já existente).
+  - Contador: sem ações (somente troca de status via select inline já presente).
 
-## 3. Fluxo de status do atendimento
+### 4. Editar clínica no Master Admin
+- Adicionar botão "Editar" inline (ícone lápis) que abre `EditClinicDialog`.
+- Dialog edita `name`, `status`, `expiration_date` em um único form e chama `updateClinic` (já aceita `name`, `status`, `expirationDate`).
+- (Admin não recebe botão de editar, conforme escolha.)
 
-Hoje: `Pendente | Emitido`.
-Novo: `Pendente | CPF Inválido | Corrigido | Emitido`.
+### 5. Bug do "Renovar +30 dias"
+Corrigir cálculo em `master-admin.tsx`:
 
-- Migration: alterar CHECK do `status`.
-- UI dashboard: dropdown de status (não mais toggle); badges coloridos por estado.
-- Lógica: contador pode mover para qualquer estado; admin idem; usuario read-only.
-- Remover `payment_method` (não está mais no spec) — manter como opcional/nullable para não quebrar dados existentes.
+```text
+base = max(hoje, expiration_date atual)
+nova = base + 30 dias
+```
 
-## 4. Rotas (renomeações + landing)
+Substitui o atual `new Date()` + 30 (que ignora a data vigente) pela soma a partir do maior entre hoje e o vencimento atual, preservando renovações antecipadas.
 
-| Hoje | Novo |
-|---|---|
-| `/` (redireciona) | `/` landing pública institucional |
-| `/super-admin` | `/master-admin` |
-| `/configuracoes` | `/equipe` |
-| `/setup` | **remover** (sem bootstrap público; super_admin promovido via SQL conforme decidido) |
+## Arquivos afetados
 
-Landing `/`: hero curto + 2 CTAs ("Entrar em Contato" via mailto/WhatsApp, "Login"). Indexável (sem `noindex`). Demais rotas autenticadas: `noindex, nofollow`.
+- `src/lib/attendances.functions.ts` — `createAttendance` passa a exigir `admin`.
+- `src/routes/_app/dashboard.tsx` — esconder botão "Novo atendimento" para contador; filtrar statuses do select por papel; nova coluna Ações com remover (admin).
+- `src/routes/master-admin.tsx` — substituir DropdownMenu por ações inline (Switch ativo/inativo, Renovar, Vencimento, Editar, Remover); novo `EditClinicDialog`; corrigir cálculo de "Renovar +30".
+- `src/routes/_app/equipe.tsx` — revisar e converter ações para inline (se houver dropdown).
 
-## 5. Tela `/equipe`
-
-Adicionar seletor de role ao convidar (admin / contador / usuario). Atualizar `team.functions.ts` para aceitar e validar o role.
-
-## 6. Trava de bloqueio
-
-Já implementada via `getSessionContext` + `_app.tsx`. Validar que super_admin nunca é bloqueado (já garantido) e que a verificação roda também no `beforeLoad` para evitar flash de conteúdo.
-
-## 7. UI
-
-Já está Shadcn + Tailwind clean. Ajustar fundo para `bg-slate-50` no shell autenticado e revisar badges de status com as 4 cores (cinza/vermelho/âmbar/verde).
-
-## 8. Removido do escopo anterior
-
-- `payment_method` obrigatório no form → opcional (campo some do formulário por padrão).
-- Rota `/setup` deletada.
-
----
-
-## Detalhes técnicos
-
-**Migration única** contendo:
-1. `ALTER TYPE app_role ADD VALUE 'contador';` + `ADD VALUE 'usuario';` (manter `user` por compatibilidade ou renomear via novo tipo + swap).
-2. `ALTER TABLE attendances DROP CONSTRAINT ... ; ADD CHECK (status IN ('Pendente','CPF Inválido','Corrigido','Emitido'));`
-3. Recriar policies de `patients`/`attendances` com checagem explícita `current_clinic_id() IS NOT NULL` e separar DELETE/UPDATE por role (contador pode UPDATE em attendances mas não em patients; usuario só SELECT).
-
-**Arquivos a editar:**
-- `supabase/migrations/<novo>.sql`
-- `src/lib/attendances.functions.ts` (statuses, remover `payment_method` obrigatório)
-- `src/lib/patients.functions.ts` (guard role para mutações)
-- `src/lib/team.functions.ts` (aceitar role contador/usuario)
-- `src/routes/index.tsx` → landing
-- `src/routes/super-admin.tsx` → renomear para `master-admin.tsx`
-- `src/routes/_app/configuracoes.tsx` → renomear para `equipe.tsx`
-- `src/routes/_app/dashboard.tsx` (dropdown de status, badges)
-- `src/routes/_app.tsx` (sidebar: itens por role; link `/equipe` e `/master-admin`)
-- **deletar** `src/routes/setup.tsx`, `src/lib/bootstrap.functions.ts`
-
-**SQL de RLS final** (resumo): documentado no arquivo de migration, com policies separadas por role usando `current_role()` helper já existente.
-
----
-
-Pronto para implementar — confirme para eu prosseguir.
+Sem alterações no banco/RLS (a regra de contador não inserir já cai como erro do server function; RLS atual permite contador inserir mas o guard do servidor bloqueia antes).

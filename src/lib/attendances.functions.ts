@@ -44,7 +44,7 @@ export const createAttendance = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const { supabase, userId } = context;
     const prof = await requireClinicProfile(supabase, userId);
-    assertStaffRole(prof.role, "Apenas Admin ou Contador podem registrar atendimentos");
+    assertAdminRole(prof.role, "Apenas Admin pode registrar atendimentos");
     const { data: row, error } = await supabase
       .from("attendances")
       .insert({ ...data, clinic_id: prof.clinic_id })
