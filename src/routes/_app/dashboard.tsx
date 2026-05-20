@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import {
-  listAttendances, updateAttendanceStatus, createAttendance,
+  listAttendances, updateAttendanceStatus, createAttendance, deleteAttendance,
   ATTENDANCE_STATUSES, type AttendanceStatus,
 } from "@/lib/attendances.functions";
 import { listPatients } from "@/lib/patients.functions";
