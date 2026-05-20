@@ -44,8 +44,14 @@ function DashboardPage() {
   const { data: session } = useSession();
   const listFn = useServerFn(listAttendances);
   const updateFn = useServerFn(updateAttendanceStatus);
+  const deleteFn = useServerFn(deleteAttendance);
 
-  const canEdit = session?.role === "admin" || session?.role === "contador";
+  const isAdmin = session?.role === "admin";
+  const isContador = session?.role === "contador";
+  const canEdit = isAdmin || isContador;
+  const statusOptions = isContador
+    ? (["Pendente", "CPF Inválido", "Emitido"] as AttendanceStatus[])
+    : (ATTENDANCE_STATUSES as readonly AttendanceStatus[]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["attendances"],
