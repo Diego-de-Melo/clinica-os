@@ -2,12 +2,14 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/hooks/use-session";
-import { buildWhatsAppActivationLink } from "@/lib/constants";
+import { APP_NAME, buildWhatsAppActivationLink } from "@/lib/constants";
 import { supabase } from "@/integrations/supabase/client";
 import { AlertTriangle, MessageCircle, LogOut } from "lucide-react";
 
 export const Route = createFileRoute("/bloqueio")({
-  head: () => ({ meta: [{ title: "Conta bloqueada — ClinicaSaaS" }, { name: "robots", content: "noindex, nofollow" }] }),
+  head: () => ({
+    meta: [{ title: `Conta bloqueada — ${APP_NAME}` }, { name: "robots", content: "noindex, nofollow" }],
+  }),
   component: BloqueioPage,
 });
 

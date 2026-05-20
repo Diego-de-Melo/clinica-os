@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getPatient } from "@/lib/patients.functions";
+import { APP_NAME } from "@/lib/constants";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -9,7 +10,9 @@ import {
 } from "@/components/ui/table";
 
 export const Route = createFileRoute("/_app/pacientes/$id")({
-  head: () => ({ meta: [{ title: "Paciente — ClinicaSaaS" }, { name: "robots", content: "noindex, nofollow" }] }),
+  head: () => ({
+    meta: [{ title: `Paciente — ${APP_NAME}` }, { name: "robots", content: "noindex, nofollow" }],
+  }),
   component: PatientDetail,
 });
 

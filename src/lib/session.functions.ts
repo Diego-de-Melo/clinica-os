@@ -1,7 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { normalizeAppRole, type AppRole } from "@/lib/auth-guards";
 
-export type AppRole = "super_admin" | "admin" | "contador" | "usuario";
+export type { AppRole };
 
 export type SessionContext = {
   userId: string;
@@ -52,9 +53,7 @@ export const getSessionContext = createServerFn({ method: "GET" })
       }
     }
 
-    // Normaliza role antigo "user" → "usuario"
-    const rawRole = profile.role as string;
-    const role: AppRole = (rawRole === "user" ? "usuario" : rawRole) as AppRole;
+    const role = normalizeAppRole(profile.role);
 
     const isSuperAdmin = role === "super_admin";
     const expired = expirationDate ? new Date(expirationDate).getTime() < Date.now() : false;

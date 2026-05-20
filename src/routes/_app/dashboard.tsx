@@ -21,11 +21,14 @@ import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { APP_NAME } from "@/lib/constants";
 import { toast } from "sonner";
 import { Loader2, Plus } from "lucide-react";
 
 export const Route = createFileRoute("/_app/dashboard")({
-  head: () => ({ meta: [{ title: "Dashboard — ClinicaSaaS" }, { name: "robots", content: "noindex, nofollow" }] }),
+  head: () => ({
+    meta: [{ title: `Dashboard — ${APP_NAME}` }, { name: "robots", content: "noindex, nofollow" }],
+  }),
   component: DashboardPage,
 });
 

@@ -17,11 +17,14 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
+import { APP_NAME } from "@/lib/constants";
 import { toast } from "sonner";
 import { Plus, Loader2, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/_app/equipe")({
-  head: () => ({ meta: [{ title: "Equipe — ClinicaSaaS" }, { name: "robots", content: "noindex, nofollow" }] }),
+  head: () => ({
+    meta: [{ title: `Equipe — ${APP_NAME}` }, { name: "robots", content: "noindex, nofollow" }],
+  }),
   component: EquipePage,
 });
 

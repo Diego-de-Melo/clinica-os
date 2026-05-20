@@ -1,3 +1,5 @@
+export const APP_NAME = "ClinicaOS";
+
 export const WHATSAPP_SUPPORT_NUMBER = "55REMOVIDO";
 
 export function buildWhatsAppActivationLink(email: string) {

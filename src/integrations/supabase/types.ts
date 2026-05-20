@@ -1,3 +1,6 @@
+// Supabase schema types. Regenerate via `supabase gen types` when the DB changes.
+// `user` was removed from app_role after migration to `usuario` (20260519001416).
+
 export type Json =
   | string
   | number
@@ -170,7 +173,7 @@ export type Database = {
       is_super_admin: { Args: never; Returns: boolean }
     }
     Enums: {
-      app_role: "super_admin" | "admin" | "user" | "contador" | "usuario"
+      app_role: "super_admin" | "admin" | "contador" | "usuario"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -298,7 +301,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["super_admin", "admin", "user", "contador", "usuario"],
+      app_role: ["super_admin", "admin", "contador", "usuario"],
     },
   },
 } as const

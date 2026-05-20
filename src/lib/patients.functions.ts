@@ -1,6 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import {
+  assertAdminRole,
+  requireClinicProfile,
+} from "@/lib/auth-guards";
 
 export const listPatients = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -55,13 +59,8 @@ export const createPatient = createServerFn({ method: "POST" })
   .inputValidator((input) => patientInput.parse(input))
   .handler(async ({ context, data }) => {
     const { supabase, userId } = context;
-    const { data: prof } = await supabase
-      .from("profiles")
-      .select("clinic_id, role")
-      .eq("id", userId)
-      .maybeSingle();
-    if (!prof?.clinic_id) throw new Error("Sem clínica associada");
-    if (prof.role !== "admin") throw new Error("Apenas Admin pode cadastrar pacientes");
+    const prof = await requireClinicProfile(supabase, userId);
+    assertAdminRole(prof.role, "Apenas Admin pode cadastrar pacientes");
     const { data: row, error } = await supabase
       .from("patients")
       .insert({ ...data, clinic_id: prof.clinic_id })
@@ -77,8 +76,11 @@ export const updatePatient = createServerFn({ method: "POST" })
     z.object({ id: z.string().uuid() }).merge(patientInput).parse(input),
   )
   .handler(async ({ context, data }) => {
+    const { supabase, userId } = context;
+    const prof = await requireClinicProfile(supabase, userId);
+    assertAdminRole(prof.role, "Apenas Admin pode editar pacientes");
     const { id, ...rest } = data;
-    const { error } = await context.supabase
+    const { error } = await supabase
       .from("patients")
       .update(rest)
       .eq("id", id);
@@ -90,7 +92,10 @@ export const deletePatient = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ context, data }) => {
-    const { error } = await context.supabase
+    const { supabase, userId } = context;
+    const prof = await requireClinicProfile(supabase, userId);
+    assertAdminRole(prof.role, "Apenas Admin pode remover pacientes");
+    const { error } = await supabase
       .from("patients")
       .delete()
       .eq("id", data.id);
@@ -107,14 +112,8 @@ export const bulkCreatePatients = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     const { supabase, userId } = context;
-    const { data: prof } = await supabase
-      .from("profiles")
-      .select("clinic_id, role")
-      .eq("id", userId)
-      .maybeSingle();
-    if (!prof?.clinic_id) throw new Error("Sem clínica associada");
-    if (prof.role !== "admin")
-      throw new Error("Apenas o admin pode importar CSV");
+    const prof = await requireClinicProfile(supabase, userId);
+    assertAdminRole(prof.role, "Apenas o admin pode importar CSV");
     const clinicId = prof.clinic_id;
     const rows = data.patients.map((p) => ({ ...p, clinic_id: clinicId }));
     const { error, count } = await supabase

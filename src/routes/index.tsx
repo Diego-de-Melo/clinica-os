@@ -1,18 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Stethoscope, ShieldCheck, Users, FileCheck2, MessageCircle } from "lucide-react";
-import { WHATSAPP_SUPPORT_NUMBER } from "@/lib/constants";
+import { APP_NAME, WHATSAPP_SUPPORT_NUMBER } from "@/lib/constants";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "ClinicaSaaS — Gestão de pacientes e faturamento para clínicas" },
+      { title: `${APP_NAME} — Gestão de pacientes e faturamento para clínicas` },
       {
         name: "description",
         content:
           "Substitua suas planilhas. Controle de pacientes, atendimentos e faturamento (Pendente, CPF Inválido, Corrigido, Emitido) em um sistema rápido e seguro.",
       },
-      { property: "og:title", content: "ClinicaSaaS — Gestão clínica e faturamento" },
+      { property: "og:title", content: `${APP_NAME} — Gestão clínica e faturamento` },
       { property: "og:description", content: "SaaS B2B para clínicas: pacientes, atendimentos e faturamento." },
     ],
   }),
@@ -20,7 +20,7 @@ export const Route = createFileRoute("/")({
 });
 
 function contactLink() {
-  const msg = "Olá, gostaria de conhecer o ClinicaSaaS para minha clínica.";
+  const msg = `Olá, gostaria de conhecer o ${APP_NAME} para minha clínica.`;
   return `https://wa.me/${WHATSAPP_SUPPORT_NUMBER}?text=${encodeURIComponent(msg)}`;
 }
 
@@ -33,7 +33,7 @@ function LandingPage() {
             <div className="h-8 w-8 rounded-md bg-primary text-primary-foreground grid place-items-center">
               <Stethoscope className="h-4 w-4" />
             </div>
-            <span className="font-semibold tracking-tight">ClinicaSaaS</span>
+            <span className="font-semibold tracking-tight">{APP_NAME}</span>
           </div>
           <div className="ml-auto flex items-center gap-2">
             <a href={contactLink()} target="_blank" rel="noreferrer">
@@ -96,7 +96,7 @@ function LandingPage() {
 
       <footer className="border-t bg-white">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center text-xs text-slate-500">
-          © {new Date().getFullYear()} ClinicaSaaS
+          © {new Date().getFullYear()} {APP_NAME}
         </div>
       </footer>
     </div>

@@ -16,18 +16,21 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
+import { APP_NAME } from "@/lib/constants";
 import { toast } from "sonner";
 import { Loader2, Plus, Search, Trash2, Upload, ChevronRight } from "lucide-react";
 
 export const Route = createFileRoute("/_app/pacientes")({
-  head: () => ({ meta: [{ title: "Pacientes — ClinicaSaaS" }, { name: "robots", content: "noindex, nofollow" }] }),
+  head: () => ({
+    meta: [{ title: `Pacientes — ${APP_NAME}` }, { name: "robots", content: "noindex, nofollow" }],
+  }),
   component: PacientesPage,
 });
 
 function PacientesPage() {
   const qc = useQueryClient();
   const session = useSession();
-  const isAdmin = session.data?.role === "admin" || session.data?.role === "super_admin";
+  const isAdmin = session.data?.role === "admin";
 
   const listFn = useServerFn(listPatients);
   const delFn = useServerFn(deletePatient);

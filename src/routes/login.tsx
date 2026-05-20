@@ -1,22 +1,26 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionContext } from "@/lib/session.functions";
+import { getPostLoginPath } from "@/lib/route-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Loader2, MessageCircle, Stethoscope } from "lucide-react";
-import { WHATSAPP_SUPPORT_NUMBER } from "@/lib/constants";
+import { APP_NAME, WHATSAPP_SUPPORT_NUMBER } from "@/lib/constants";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
-    meta: [{ title: "Login — ClinicaSaaS" }, { name: "robots", content: "noindex, nofollow" }],
+    meta: [{ title: `Login — ${APP_NAME}` }, { name: "robots", content: "noindex, nofollow" }],
   }),
   component: LoginPage,
 });
 
 function LoginPage() {
   const navigate = useNavigate();
+  const sessionFn = useServerFn(getSessionContext);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -27,8 +31,9 @@ function LoginPage() {
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
+      const session = await sessionFn();
       toast.success("Login efetuado");
-      navigate({ to: "/dashboard" });
+      navigate({ to: getPostLoginPath(session) });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Falha ao entrar");
     } finally {
@@ -43,7 +48,7 @@ function LoginPage() {
           <div className="h-9 w-9 rounded-lg bg-primary text-primary-foreground grid place-items-center">
             <Stethoscope className="h-5 w-5" />
           </div>
-          <span className="text-lg font-semibold tracking-tight">ClinicaSaaS</span>
+          <span className="text-lg font-semibold tracking-tight">{APP_NAME}</span>
         </div>
         <div className="rounded-xl border bg-card p-8 shadow-sm">
           <h1 className="text-xl font-semibold tracking-tight">Acessar conta</h1>
@@ -80,7 +85,7 @@ function LoginPage() {
             </Button>
           </form>
           <a
-            href={`https://wa.me/${WHATSAPP_SUPPORT_NUMBER}?text=${encodeURIComponent("Olá, gostaria de criar uma conta no ClinicaSaaS.")}`}
+            href={`https://wa.me/${WHATSAPP_SUPPORT_NUMBER}?text=${encodeURIComponent(`Olá, gostaria de criar uma conta no ${APP_NAME}.`)}`}
             target="_blank"
             rel="noreferrer"
             className="mt-6 flex items-center justify-center gap-2 text-xs text-muted-foreground hover:text-foreground"
