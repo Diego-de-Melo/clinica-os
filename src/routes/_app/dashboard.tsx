@@ -90,7 +90,7 @@ function DashboardPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
           <p className="text-sm text-muted-foreground">Atendimentos e fluxo de faturamento da clínica.</p>
         </div>
-        {canEdit && (
+        {isAdmin && (
           <NewAttendanceDialog onCreated={() => qc.invalidateQueries({ queryKey: ["attendances"] })} />
         )}
       </div>
