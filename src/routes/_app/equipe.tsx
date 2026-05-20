@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { APP_NAME } from "@/lib/constants";
 import { toast } from "sonner";
+import { ActionCell, InlineAction } from "@/components/row-actions";
 import { Plus, Loader2, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/_app/equipe")({
@@ -68,7 +69,7 @@ function EquipePage() {
               <TableHead>Email</TableHead>
               <TableHead>Papel</TableHead>
               <TableHead>Cadastro</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
+              <TableHead className="text-right min-w-[120px]">Ação</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -81,13 +82,20 @@ function EquipePage() {
                 </TableCell>
                 <TableCell className="text-muted-foreground">{new Date(m.created_at).toLocaleDateString("pt-BR")}</TableCell>
                 <TableCell className="text-right">
-                  {m.id !== session?.userId && (
-                    <Button
-                      variant="ghost" size="sm"
-                      onClick={() => { if (confirm(`Remover ${m.email}?`)) delMut.mutate(m.id); }}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
+                  {m.id !== session?.userId ? (
+                    <ActionCell>
+                      <InlineAction
+                        label="Remover"
+                        icon={Trash2}
+                        variant="destructive"
+                        disabled={delMut.isPending}
+                        onClick={() => {
+                          if (confirm(`Remover ${m.email}?`)) delMut.mutate(m.id);
+                        }}
+                      />
+                    </ActionCell>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">Você</span>
                   )}
                 </TableCell>
               </TableRow>

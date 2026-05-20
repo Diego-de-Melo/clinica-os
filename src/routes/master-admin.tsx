@@ -25,7 +25,7 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
-import { Switch } from "@/components/ui/switch";
+import { ActionCell, DirectToggle, InlineAction } from "@/components/row-actions";
 import { toast } from "sonner";
 import {
   Plus,
@@ -187,7 +187,7 @@ function SuperAdminPage() {
                 <TableHead>Status</TableHead>
                 <TableHead>Vencimento</TableHead>
                 <TableHead>Cadastro</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
+                <TableHead className="text-right min-w-[280px]">Ação</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -212,20 +212,21 @@ function SuperAdminPage() {
                     </TableCell>
                     <TableCell className="text-muted-foreground">{new Date(c.created_at).toLocaleDateString("pt-BR")}</TableCell>
                     <TableCell className="text-right">
-                      <div className="inline-flex items-center gap-1.5">
-                        <div className="flex items-center gap-1.5 pr-2 border-r mr-1">
-                          <Switch
-                            checked={c.status === "ativo"}
-                            onCheckedChange={(v) => updMut.mutate({ id: c.id, status: v ? "ativo" : "inativo" })}
-                            aria-label={c.status === "ativo" ? "Desativar" : "Ativar"}
-                          />
-                          <span className="text-xs text-muted-foreground w-12">
-                            {c.status === "ativo" ? "Ativo" : "Inativo"}
-                          </span>
-                        </div>
-                        <Button
-                          variant="ghost" size="sm"
-                          title="Renovar +30 dias"
+                      <ActionCell>
+                        <DirectToggle
+                          checked={c.status === "ativo"}
+                          labelOn="Ativo"
+                          labelOff="Inativo"
+                          disabled={updMut.isPending}
+                          onCheckedChange={(v) =>
+                            updMut.mutate({ id: c.id, status: v ? "ativo" : "inativo" })
+                          }
+                        />
+                        <span className="text-border mx-0.5 hidden sm:inline">|</span>
+                        <InlineAction
+                          label="+30 dias"
+                          icon={RefreshCw}
+                          disabled={updMut.isPending}
                           onClick={() => {
                             const now = Date.now();
                             const current = c.expiration_date ? new Date(c.expiration_date).getTime() : 0;
@@ -233,9 +234,7 @@ function SuperAdminPage() {
                             base.setDate(base.getDate() + 30);
                             updMut.mutate({ id: c.id, expirationDate: base.toISOString(), status: "ativo" });
                           }}
-                        >
-                          <RefreshCw className="h-4 w-4" /> +30d
-                        </Button>
+                        />
                         <EditExpirationButton
                           current={c.expiration_date}
                           onSave={(iso) => updMut.mutate({ id: c.id, expirationDate: iso })}
@@ -244,14 +243,18 @@ function SuperAdminPage() {
                           clinic={c}
                           onSave={(patch) => updMut.mutate({ id: c.id, ...patch })}
                         />
-                        <Button
-                          variant="ghost" size="sm"
-                          title="Remover clínica"
-                          onClick={() => { if (confirm(`Remover clínica "${c.name}" e todos os usuários?`)) delMut.mutate(c.id); }}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
+                        <InlineAction
+                          label="Remover"
+                          icon={Trash2}
+                          variant="destructive"
+                          disabled={delMut.isPending}
+                          onClick={() => {
+                            if (confirm(`Remover clínica "${c.name}" e todos os usuários?`)) {
+                              delMut.mutate(c.id);
+                            }
+                          }}
+                        />
+                      </ActionCell>
                     </TableCell>
                   </TableRow>
                 );
@@ -319,9 +322,7 @@ function EditExpirationButton({ current, onSave }: { current: string | null; onS
   const [value, setValue] = useState(current ? current.slice(0, 10) : "");
   return (
     <>
-      <Button variant="ghost" size="sm" title="Definir vencimento" onClick={() => setOpen(true)}>
-        <CalendarDays className="h-4 w-4" />
-      </Button>
+      <InlineAction label="Vencimento" icon={CalendarDays} onClick={() => setOpen(true)} />
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Definir vencimento</DialogTitle></DialogHeader>
@@ -369,9 +370,7 @@ function EditClinicButton({
 
   return (
     <>
-      <Button variant="ghost" size="sm" title="Editar clínica" onClick={() => setOpen(true)}>
-        <Pencil className="h-4 w-4" />
-      </Button>
+      <InlineAction label="Editar" icon={Pencil} onClick={() => setOpen(true)} />
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Editar clínica</DialogTitle></DialogHeader>

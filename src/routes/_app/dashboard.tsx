@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { ActionCell, InlineAction } from "@/components/row-actions";
 import { APP_NAME } from "@/lib/constants";
 import { toast } from "sonner";
 import { Loader2, Plus, Trash2 } from "lucide-react";
@@ -38,6 +39,21 @@ const STATUS_STYLES: Record<AttendanceStatus, string> = {
   "Corrigido": "bg-amber-100 text-amber-800",
   "Emitido": "bg-success/15 text-success",
 };
+
+const STATUS_ACTION_LABEL: Record<AttendanceStatus, string> = {
+  "Pendente": "Reabrir",
+  "CPF Inválido": "CPF inválido",
+  "Corrigido": "Corrigir",
+  "Emitido": "Emitir",
+};
+
+function StatusBadge({ status }: { status: AttendanceStatus }) {
+  return (
+    <Badge className={`${STATUS_STYLES[status]} border-0 font-normal`}>
+      {status}
+    </Badge>
+  );
+}
 
 function DashboardPage() {
   const qc = useQueryClient();
@@ -113,16 +129,16 @@ function DashboardPage() {
               <TableHead>Data</TableHead>
               <TableHead>Valor</TableHead>
               <TableHead>Pagamento</TableHead>
-              <TableHead className="w-[200px]">Status</TableHead>
-              <TableHead className="w-[80px] text-right">Ações</TableHead>
+              <TableHead className="w-[140px]">Status</TableHead>
+              <TableHead className="min-w-[220px] text-right">Ação</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
-              <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Carregando…</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Carregando…</TableCell></TableRow>
             )}
             {!isLoading && rows.length === 0 && (
-              <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhum atendimento ainda.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhum atendimento ainda.</TableCell></TableRow>
             )}
             {rows.map((r) => {
               const status = r.status as AttendanceStatus;
@@ -133,36 +149,35 @@ function DashboardPage() {
                   <TableCell>{Number(r.value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</TableCell>
                   <TableCell className="text-muted-foreground">{r.payment_method ?? "—"}</TableCell>
                   <TableCell>
-                    {canEdit ? (
-                      <Select
-                        value={status}
-                        onValueChange={(v) => updateMut.mutate({ id: r.id, status: v as AttendanceStatus })}
-                        disabled={updateMut.isPending}
-                      >
-                        <SelectTrigger className="h-8 w-[170px]">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {statusOptions.map((s) => (
-                            <SelectItem key={s} value={s}>{s}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Badge className={`${STATUS_STYLES[status]} hover:${STATUS_STYLES[status]} border-0`}>
-                        {status}
-                      </Badge>
-                    )}
+                    <StatusBadge status={status} />
                   </TableCell>
                   <TableCell className="text-right">
-                    {isAdmin && (
-                      <Button
-                        variant="ghost" size="sm"
-                        onClick={() => { if (confirm("Remover este atendimento?")) deleteMut.mutate(r.id); }}
-                        disabled={deleteMut.isPending}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+                    {canEdit ? (
+                      <ActionCell>
+                        {statusOptions
+                          .filter((s) => s !== status)
+                          .map((target) => (
+                            <InlineAction
+                              key={target}
+                              label={STATUS_ACTION_LABEL[target]}
+                              disabled={updateMut.isPending}
+                              onClick={() => updateMut.mutate({ id: r.id, status: target })}
+                            />
+                          ))}
+                        {isAdmin && (
+                          <InlineAction
+                            label="Remover"
+                            icon={Trash2}
+                            variant="destructive"
+                            disabled={deleteMut.isPending}
+                            onClick={() => {
+                              if (confirm("Remover este atendimento?")) deleteMut.mutate(r.id);
+                            }}
+                          />
+                        )}
+                      </ActionCell>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Somente leitura</span>
                     )}
                   </TableCell>
                 </TableRow>

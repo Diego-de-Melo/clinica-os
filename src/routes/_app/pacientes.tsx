@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { APP_NAME } from "@/lib/constants";
 import { toast } from "sonner";
+import { ActionCell, InlineAction } from "@/components/row-actions";
 import { Loader2, Plus, Search, Trash2, Upload, ChevronRight } from "lucide-react";
 
 export const Route = createFileRoute("/_app/pacientes")({
@@ -28,6 +29,7 @@ export const Route = createFileRoute("/_app/pacientes")({
 });
 
 function PacientesPage() {
+  const navigate = useNavigate();
   const qc = useQueryClient();
   const session = useSession();
   const isAdmin = session.data?.role === "admin";
@@ -77,7 +79,7 @@ function PacientesPage() {
               <TableHead>CPF</TableHead>
               <TableHead>Responsável</TableHead>
               <TableHead>Cadastro</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
+              <TableHead className="text-right min-w-[180px]">Ação</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -98,21 +100,23 @@ function PacientesPage() {
                   {new Date(p.created_at).toLocaleDateString("pt-BR")}
                 </TableCell>
                 <TableCell className="text-right">
-                  <div className="inline-flex items-center gap-1">
+                  <ActionCell>
+                    <InlineAction
+                      label="Ver detalhes"
+                      icon={ChevronRight}
+                      onClick={() => navigate({ to: "/pacientes/$id", params: { id: p.id } })}
+                    />
                     {isAdmin && (
-                      <Button
-                        variant="ghost" size="sm"
+                      <InlineAction
+                        label="Remover"
+                        icon={Trash2}
+                        variant="destructive"
                         onClick={() => {
                           if (confirm(`Remover ${p.name}?`)) delMut.mutate(p.id);
                         }}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+                      />
                     )}
-                    <Link to="/pacientes/$id" params={{ id: p.id }}>
-                      <Button variant="ghost" size="sm"><ChevronRight className="h-4 w-4" /></Button>
-                    </Link>
-                  </div>
+                  </ActionCell>
                 </TableCell>
               </TableRow>
             ))}
