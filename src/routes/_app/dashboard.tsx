@@ -68,6 +68,15 @@ function DashboardPage() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Erro"),
   });
 
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => deleteFn({ data: { id } }),
+    onSuccess: () => {
+      toast.success("Atendimento removido");
+      qc.invalidateQueries({ queryKey: ["attendances"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Erro"),
+  });
+
   const rows = data ?? [];
   const total = rows.reduce((s, r) => s + Number(r.value), 0);
   const pendentes = rows.filter((r) => r.status === "Pendente").length;
