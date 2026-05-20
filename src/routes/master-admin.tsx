@@ -25,17 +25,13 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import {
   Plus,
   Loader2,
   ShieldCheck,
-  MoreHorizontal,
   Trash2,
-  Power,
   CalendarDays,
   LogOut,
   Search,
@@ -43,6 +39,8 @@ import {
   CheckCircle2,
   XCircle,
   AlertTriangle,
+  RefreshCw,
+  Pencil,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
