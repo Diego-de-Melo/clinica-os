@@ -212,32 +212,46 @@ function SuperAdminPage() {
                     </TableCell>
                     <TableCell className="text-muted-foreground">{new Date(c.created_at).toLocaleDateString("pt-BR")}</TableCell>
                     <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => updMut.mutate({ id: c.id, status: c.status === "ativo" ? "inativo" : "ativo" })}>
-                            <Power className="h-4 w-4" /> {c.status === "ativo" ? "Desativar" : "Ativar"}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => {
-                            const d = new Date(); d.setDate(d.getDate() + 30);
-                            updMut.mutate({ id: c.id, expirationDate: d.toISOString(), status: "ativo" });
-                          }}>
-                            <CalendarDays className="h-4 w-4" /> Renovar +30 dias
-                          </DropdownMenuItem>
-                          <EditExpirationItem
-                            current={c.expiration_date}
-                            onSave={(iso) => updMut.mutate({ id: c.id, expirationDate: iso })}
+                      <div className="inline-flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 pr-2 border-r mr-1">
+                          <Switch
+                            checked={c.status === "ativo"}
+                            onCheckedChange={(v) => updMut.mutate({ id: c.id, status: v ? "ativo" : "inativo" })}
+                            aria-label={c.status === "ativo" ? "Desativar" : "Ativar"}
                           />
-                          <DropdownMenuItem
-                            className="text-destructive"
-                            onClick={() => { if (confirm(`Remover clínica "${c.name}" e todos os usuários?`)) delMut.mutate(c.id); }}
-                          >
-                            <Trash2 className="h-4 w-4" /> Remover
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                          <span className="text-xs text-muted-foreground w-12">
+                            {c.status === "ativo" ? "Ativo" : "Inativo"}
+                          </span>
+                        </div>
+                        <Button
+                          variant="ghost" size="sm"
+                          title="Renovar +30 dias"
+                          onClick={() => {
+                            const now = Date.now();
+                            const current = c.expiration_date ? new Date(c.expiration_date).getTime() : 0;
+                            const base = new Date(Math.max(now, current));
+                            base.setDate(base.getDate() + 30);
+                            updMut.mutate({ id: c.id, expirationDate: base.toISOString(), status: "ativo" });
+                          }}
+                        >
+                          <RefreshCw className="h-4 w-4" /> +30d
+                        </Button>
+                        <EditExpirationButton
+                          current={c.expiration_date}
+                          onSave={(iso) => updMut.mutate({ id: c.id, expirationDate: iso })}
+                        />
+                        <EditClinicButton
+                          clinic={c}
+                          onSave={(patch) => updMut.mutate({ id: c.id, ...patch })}
+                        />
+                        <Button
+                          variant="ghost" size="sm"
+                          title="Remover clínica"
+                          onClick={() => { if (confirm(`Remover clínica "${c.name}" e todos os usuários?`)) delMut.mutate(c.id); }}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
