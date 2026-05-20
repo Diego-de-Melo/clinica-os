@@ -114,14 +114,15 @@ function DashboardPage() {
               <TableHead>Valor</TableHead>
               <TableHead>Pagamento</TableHead>
               <TableHead className="w-[200px]">Status</TableHead>
+              <TableHead className="w-[80px] text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
-              <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Carregando…</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Carregando…</TableCell></TableRow>
             )}
             {!isLoading && rows.length === 0 && (
-              <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Nenhum atendimento ainda.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhum atendimento ainda.</TableCell></TableRow>
             )}
             {rows.map((r) => {
               const status = r.status as AttendanceStatus;
@@ -142,7 +143,7 @@ function DashboardPage() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {ATTENDANCE_STATUSES.map((s) => (
+                          {statusOptions.map((s) => (
                             <SelectItem key={s} value={s}>{s}</SelectItem>
                           ))}
                         </SelectContent>
@@ -151,6 +152,17 @@ function DashboardPage() {
                       <Badge className={`${STATUS_STYLES[status]} hover:${STATUS_STYLES[status]} border-0`}>
                         {status}
                       </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {isAdmin && (
+                      <Button
+                        variant="ghost" size="sm"
+                        onClick={() => { if (confirm("Remover este atendimento?")) deleteMut.mutate(r.id); }}
+                        disabled={deleteMut.isPending}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
                     )}
                   </TableCell>
                 </TableRow>
