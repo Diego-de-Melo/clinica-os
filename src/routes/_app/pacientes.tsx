@@ -1,10 +1,10 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import Papa from "papaparse";
 import {
-  listPatients, createPatient, deletePatient, bulkCreatePatients,
+  listPatients, createPatient, updatePatient, deletePatient, bulkCreatePatients,
 } from "@/lib/patients.functions";
 import { useSession } from "@/hooks/use-session";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,7 @@ import {
 import { APP_NAME } from "@/lib/constants";
 import { toast } from "sonner";
 import { ActionCell, InlineAction } from "@/components/row-actions";
-import { Loader2, Plus, Search, Trash2, Upload, ChevronRight } from "lucide-react";
+import { Loader2, Plus, Search, Trash2, Upload } from "lucide-react";
 
 export const Route = createFileRoute("/_app/pacientes")({
   head: () => ({
@@ -28,8 +28,18 @@ export const Route = createFileRoute("/_app/pacientes")({
   component: PacientesPage,
 });
 
+type Patient = {
+  id: string;
+  name: string;
+  cpf: string | null;
+  father_name: string | null;
+  father_cpf: string | null;
+  mother_name: string | null;
+  mother_cpf: string | null;
+  created_at: string;
+};
+
 function PacientesPage() {
-  const navigate = useNavigate();
   const qc = useQueryClient();
   const session = useSession();
   const isAdmin = session.data?.role === "admin";
@@ -37,6 +47,7 @@ function PacientesPage() {
   const listFn = useServerFn(listPatients);
   const delFn = useServerFn(deletePatient);
   const [search, setSearch] = useState("");
+  const [editing, setEditing] = useState<Patient | null>(null);
 
   const { data: rows, isLoading } = useQuery({
     queryKey: ["patients", search],
@@ -77,35 +88,42 @@ function PacientesPage() {
             <TableRow>
               <TableHead>Nome</TableHead>
               <TableHead>CPF</TableHead>
-              <TableHead>Responsável</TableHead>
+              <TableHead>Pai</TableHead>
+              <TableHead>Mãe</TableHead>
               <TableHead>Cadastro</TableHead>
-              <TableHead className="text-right min-w-[180px]">Ação</TableHead>
+              <TableHead className="text-right min-w-[120px]">Ação</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading && <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Carregando…</TableCell></TableRow>}
+            {isLoading && <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Carregando…</TableCell></TableRow>}
             {!isLoading && (rows ?? []).length === 0 && (
-              <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Nenhum paciente.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhum paciente.</TableCell></TableRow>
             )}
-            {(rows ?? []).map((p) => (
+            {((rows as Patient[] | undefined) ?? []).map((p) => (
               <TableRow key={p.id}>
                 <TableCell className="font-medium">
-                  <Link to="/pacientes/$id" params={{ id: p.id }} className="hover:underline">
-                    {p.name}
-                  </Link>
+                  {isAdmin ? (
+                    <button
+                      type="button"
+                      className="text-left hover:underline"
+                      onClick={() => setEditing(p)}
+                    >
+                      {p.name}
+                    </button>
+                  ) : (
+                    <Link to="/pacientes/$id" params={{ id: p.id }} className="hover:underline">
+                      {p.name}
+                    </Link>
+                  )}
                 </TableCell>
                 <TableCell>{p.cpf ?? "—"}</TableCell>
-                <TableCell>{p.responsible_name ?? "—"}</TableCell>
+                <TableCell>{p.father_name ?? "—"}</TableCell>
+                <TableCell>{p.mother_name ?? "—"}</TableCell>
                 <TableCell className="text-muted-foreground">
                   {new Date(p.created_at).toLocaleDateString("pt-BR")}
                 </TableCell>
                 <TableCell className="text-right">
                   <ActionCell>
-                    <InlineAction
-                      label="Ver detalhes"
-                      icon={ChevronRight}
-                      onClick={() => navigate({ to: "/pacientes/$id", params: { id: p.id } })}
-                    />
                     {isAdmin && (
                       <InlineAction
                         label="Remover"
@@ -123,31 +141,101 @@ function PacientesPage() {
           </TableBody>
         </Table>
       </div>
+
+      {editing && (
+        <EditPatientDialog
+          patient={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            qc.invalidateQueries({ queryKey: ["patients"] });
+          }}
+        />
+      )}
     </div>
   );
+}
+
+type PatientForm = {
+  name: string;
+  cpf: string;
+  father_name: string;
+  father_cpf: string;
+  mother_name: string;
+  mother_cpf: string;
+};
+
+const EMPTY_FORM: PatientForm = {
+  name: "", cpf: "",
+  father_name: "", father_cpf: "",
+  mother_name: "", mother_cpf: "",
+};
+
+function PatientFields({ form, setForm }: {
+  form: PatientForm; setForm: (f: PatientForm) => void;
+}) {
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label>Nome *</Label>
+        <Input required minLength={2} value={form.name}
+          onChange={(e) => setForm({ ...form, name: e.target.value })} />
+      </div>
+      <div className="space-y-2">
+        <Label>CPF</Label>
+        <Input value={form.cpf} onChange={(e) => setForm({ ...form, cpf: e.target.value })} />
+      </div>
+      <div className="rounded-lg border p-3 space-y-3">
+        <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Pai</div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-2"><Label>Nome do pai</Label>
+            <Input value={form.father_name}
+              onChange={(e) => setForm({ ...form, father_name: e.target.value })} /></div>
+          <div className="space-y-2"><Label>CPF do pai</Label>
+            <Input value={form.father_cpf}
+              onChange={(e) => setForm({ ...form, father_cpf: e.target.value })} /></div>
+        </div>
+      </div>
+      <div className="rounded-lg border p-3 space-y-3">
+        <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Mãe</div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-2"><Label>Nome da mãe</Label>
+            <Input value={form.mother_name}
+              onChange={(e) => setForm({ ...form, mother_name: e.target.value })} /></div>
+          <div className="space-y-2"><Label>CPF da mãe</Label>
+            <Input value={form.mother_cpf}
+              onChange={(e) => setForm({ ...form, mother_cpf: e.target.value })} /></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function toPayload(form: PatientForm) {
+  return {
+    name: form.name,
+    cpf: form.cpf || null,
+    father_name: form.father_name || null,
+    father_cpf: form.father_cpf || null,
+    mother_name: form.mother_name || null,
+    mother_cpf: form.mother_cpf || null,
+  };
 }
 
 function NewPatientDialog({ onCreated }: { onCreated: () => void }) {
   const [open, setOpen] = useState(false);
   const createFn = useServerFn(createPatient);
-  const [form, setForm] = useState({ name: "", cpf: "", responsible_name: "", responsible_cpf: "" });
+  const [form, setForm] = useState<PatientForm>(EMPTY_FORM);
   const [loading, setLoading] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     try {
-      await createFn({
-        data: {
-          name: form.name,
-          cpf: form.cpf || null,
-          responsible_name: form.responsible_name || null,
-          responsible_cpf: form.responsible_cpf || null,
-        },
-      });
+      await createFn({ data: toPayload(form) });
       toast.success("Paciente criado");
       setOpen(false);
-      setForm({ name: "", cpf: "", responsible_name: "", responsible_cpf: "" });
+      setForm(EMPTY_FORM);
       onCreated();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro");
@@ -164,16 +252,52 @@ function NewPatientDialog({ onCreated }: { onCreated: () => void }) {
       <DialogContent>
         <DialogHeader><DialogTitle>Novo paciente</DialogTitle></DialogHeader>
         <form onSubmit={submit} className="space-y-4">
-          <div className="space-y-2">
-            <Label>Nome *</Label>
-            <Input required minLength={2} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2"><Label>CPF</Label><Input value={form.cpf} onChange={(e) => setForm({ ...form, cpf: e.target.value })} /></div>
-            <div className="space-y-2"><Label>CPF do responsável</Label><Input value={form.responsible_cpf} onChange={(e) => setForm({ ...form, responsible_cpf: e.target.value })} /></div>
-          </div>
-          <div className="space-y-2"><Label>Nome do responsável</Label><Input value={form.responsible_name} onChange={(e) => setForm({ ...form, responsible_name: e.target.value })} /></div>
+          <PatientFields form={form} setForm={setForm} />
           <DialogFooter>
+            <Button type="submit" disabled={loading}>{loading && <Loader2 className="h-4 w-4 animate-spin" />} Salvar</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditPatientDialog({ patient, onClose, onSaved }: {
+  patient: Patient; onClose: () => void; onSaved: () => void;
+}) {
+  const updateFn = useServerFn(updatePatient);
+  const [form, setForm] = useState<PatientForm>({
+    name: patient.name ?? "",
+    cpf: patient.cpf ?? "",
+    father_name: patient.father_name ?? "",
+    father_cpf: patient.father_cpf ?? "",
+    mother_name: patient.mother_name ?? "",
+    mother_cpf: patient.mother_cpf ?? "",
+  });
+  const [loading, setLoading] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await updateFn({ data: { id: patient.id, ...toPayload(form) } });
+      toast.success("Paciente atualizado");
+      onSaved();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Editar paciente</DialogTitle></DialogHeader>
+        <form onSubmit={submit} className="space-y-4">
+          <PatientFields form={form} setForm={setForm} />
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
             <Button type="submit" disabled={loading}>{loading && <Loader2 className="h-4 w-4 animate-spin" />} Salvar</Button>
           </DialogFooter>
         </form>
@@ -198,8 +322,10 @@ function ImportCsvDialog({ onDone }: { onDone: () => void }) {
             .map((r) => ({
               name: (r.name || r.nome || "").trim(),
               cpf: (r.cpf || "").trim() || null,
-              responsible_name: (r.responsible_name || r.responsavel || "").trim() || null,
-              responsible_cpf: (r.responsible_cpf || r.cpf_responsavel || "").trim() || null,
+              father_name: (r.father_name || r.pai || "").trim() || null,
+              father_cpf: (r.father_cpf || r.cpf_pai || "").trim() || null,
+              mother_name: (r.mother_name || r.mae || "").trim() || null,
+              mother_cpf: (r.mother_cpf || r.cpf_mae || "").trim() || null,
             }))
             .filter((r) => r.name.length >= 2);
           if (rows.length === 0) {
@@ -232,7 +358,8 @@ function ImportCsvDialog({ onDone }: { onDone: () => void }) {
         <DialogHeader>
           <DialogTitle>Importar pacientes via CSV</DialogTitle>
           <DialogDescription>
-            Colunas aceitas: <code>name</code> (ou <code>nome</code>), <code>cpf</code>, <code>responsible_name</code>, <code>responsible_cpf</code>.
+            Colunas: <code>name</code>/<code>nome</code>, <code>cpf</code>,
+            {" "}<code>pai</code>, <code>cpf_pai</code>, <code>mae</code>, <code>cpf_mae</code>.
           </DialogDescription>
         </DialogHeader>
         <Input
