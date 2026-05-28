@@ -56,6 +56,33 @@ export const createTeamMember = createServerFn({ method: "POST" })
     return { ok: true, userId: created.user?.id };
   });
 
+export const updateTeamMemberRole = createServerFn({ method: "POST" })
+  .middleware([requireClinicAdmin])
+  .inputValidator((input) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        role: z.enum(["admin", "contador", "usuario"]),
+      })
+      .parse(input),
+  )
+  .handler(async ({ context, data }) => {
+    const { data: target } = await supabaseAdmin
+      .from("profiles")
+      .select("clinic_id, id")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (!target || target.clinic_id !== context.clinicId) {
+      throw new Error("Membro não pertence à sua clínica");
+    }
+    const { error } = await supabaseAdmin
+      .from("profiles")
+      .update({ role: data.role })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 export const deleteTeamMember = createServerFn({ method: "POST" })
   .middleware([requireClinicAdmin])
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
@@ -72,3 +99,4 @@ export const deleteTeamMember = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
