@@ -2,7 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { listTeam, createTeamMember, deleteTeamMember } from "@/lib/team.functions";
+import {
+  listTeam, createTeamMember, deleteTeamMember, updateTeamMemberRole,
+} from "@/lib/team.functions";
 import { useSession } from "@/hooks/use-session";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,12 +45,18 @@ function EquipePage() {
   const qc = useQueryClient();
   const listFn = useServerFn(listTeam);
   const delFn = useServerFn(deleteTeamMember);
+  const roleFn = useServerFn(updateTeamMemberRole);
   const { data: team, isLoading } = useQuery({
     queryKey: ["team"], queryFn: () => listFn(),
   });
   const delMut = useMutation({
     mutationFn: (id: string) => delFn({ data: { id } }),
     onSuccess: () => { toast.success("Membro removido"); qc.invalidateQueries({ queryKey: ["team"] }); },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Erro"),
+  });
+  const roleMut = useMutation({
+    mutationFn: ({ id, role }: { id: string; role: Role }) => roleFn({ data: { id, role } }),
+    onSuccess: () => { toast.success("Papel atualizado"); qc.invalidateQueries({ queryKey: ["team"] }); },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Erro"),
   });
 
@@ -67,45 +75,65 @@ function EquipePage() {
           <TableHeader>
             <TableRow>
               <TableHead>Email</TableHead>
-              <TableHead>Papel</TableHead>
+              <TableHead className="w-[200px]">Papel</TableHead>
               <TableHead>Cadastro</TableHead>
               <TableHead className="text-right min-w-[120px]">Ação</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Carregando…</TableCell></TableRow>}
-            {(team ?? []).map((m) => (
-              <TableRow key={m.id}>
-                <TableCell className="font-medium">{m.email}</TableCell>
-                <TableCell>
-                  <Badge variant="outline">{ROLE_LABELS[m.role] ?? m.role}</Badge>
-                </TableCell>
-                <TableCell className="text-muted-foreground">{new Date(m.created_at).toLocaleDateString("pt-BR")}</TableCell>
-                <TableCell className="text-right">
-                  {m.id !== session?.userId ? (
-                    <ActionCell>
-                      <InlineAction
-                        label="Remover"
-                        icon={Trash2}
-                        variant="destructive"
-                        disabled={delMut.isPending}
-                        onClick={() => {
-                          if (confirm(`Remover ${m.email}?`)) delMut.mutate(m.id);
-                        }}
-                      />
-                    </ActionCell>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">Você</span>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
+            {(team ?? []).map((m) => {
+              const isSelf = m.id === session?.userId;
+              const isRoleEditable = !isSelf && (m.role === "admin" || m.role === "contador" || m.role === "usuario");
+              return (
+                <TableRow key={m.id}>
+                  <TableCell className="font-medium">{m.email}</TableCell>
+                  <TableCell>
+                    {isRoleEditable ? (
+                      <Select
+                        value={m.role}
+                        onValueChange={(v) => roleMut.mutate({ id: m.id, role: v as Role })}
+                        disabled={roleMut.isPending}
+                      >
+                        <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="admin">Admin</SelectItem>
+                          <SelectItem value="contador">Contador</SelectItem>
+                          <SelectItem value="usuario">Usuário</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Badge variant="outline">{ROLE_LABELS[m.role] ?? m.role}</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{new Date(m.created_at).toLocaleDateString("pt-BR")}</TableCell>
+                  <TableCell className="text-right">
+                    {!isSelf ? (
+                      <ActionCell>
+                        <InlineAction
+                          label="Remover"
+                          icon={Trash2}
+                          variant="destructive"
+                          disabled={delMut.isPending}
+                          onClick={() => {
+                            if (confirm(`Remover ${m.email}?`)) delMut.mutate(m.id);
+                          }}
+                        />
+                      </ActionCell>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Você</span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>
     </div>
   );
 }
+
 
 function NewMemberDialog({ onDone }: { onDone: () => void }) {
   const [open, setOpen] = useState(false);

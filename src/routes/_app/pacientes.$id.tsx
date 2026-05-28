@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getPatient } from "@/lib/patients.functions";
+import { INVOICE_FOR_LABEL, type InvoiceFor } from "@/lib/attendances.functions";
 import { APP_NAME } from "@/lib/constants";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -37,11 +38,15 @@ function PatientDetail() {
 
       <div className="rounded-xl border bg-card p-6">
         <h1 className="text-2xl font-semibold tracking-tight">{data.patient.name}</h1>
-        <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+        <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
           <Field label="CPF" value={data.patient.cpf} />
-          <Field label="Responsável" value={data.patient.responsible_name} />
-          <Field label="CPF do responsável" value={data.patient.responsible_cpf} />
           <Field label="Cadastro" value={new Date(data.patient.created_at).toLocaleDateString("pt-BR")} />
+          <div />
+          <Field label="Pai" value={data.patient.father_name} />
+          <Field label="CPF do pai" value={data.patient.father_cpf} />
+          <div />
+          <Field label="Mãe" value={data.patient.mother_name} />
+          <Field label="CPF da mãe" value={data.patient.mother_cpf} />
         </div>
       </div>
 
@@ -58,27 +63,34 @@ function PatientDetail() {
               <TableHead>Data</TableHead>
               <TableHead>Valor</TableHead>
               <TableHead>Pagamento</TableHead>
+              <TableHead>Emitir para</TableHead>
               <TableHead>Status</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {data.attendances.length === 0 && (
-              <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Sem atendimentos.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Sem atendimentos.</TableCell></TableRow>
             )}
-            {data.attendances.map((a) => (
-              <TableRow key={a.id}>
-                <TableCell>{new Date(a.date).toLocaleDateString("pt-BR")}</TableCell>
-                <TableCell>{Number(a.value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</TableCell>
-                <TableCell>{a.payment_method}</TableCell>
-                <TableCell>
-                  {a.status === "Emitido" ? (
-                    <Badge className="bg-success/15 text-success border-0">Emitido</Badge>
-                  ) : (
-                    <Badge className="bg-warning/15 text-warning border-0">Pendente</Badge>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
+            {data.attendances.map((a) => {
+              const inv = (a as { invoice_for?: string }).invoice_for as InvoiceFor | undefined;
+              return (
+                <TableRow key={a.id}>
+                  <TableCell>{new Date(a.date).toLocaleDateString("pt-BR")}</TableCell>
+                  <TableCell>{Number(a.value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</TableCell>
+                  <TableCell>{a.payment_method ?? "—"}</TableCell>
+                  <TableCell>{inv ? INVOICE_FOR_LABEL[inv] : "—"}</TableCell>
+                  <TableCell>
+                    {a.status === "Emitido" ? (
+                      <Badge className="bg-success/15 text-success border-0">Emitido</Badge>
+                    ) : a.status === "CPF Inválido" ? (
+                      <Badge className="bg-destructive/15 text-destructive border-0">CPF Inválido</Badge>
+                    ) : (
+                      <Badge className="bg-slate-200 text-slate-700 border-0">{a.status}</Badge>
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>

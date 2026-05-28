@@ -20,6 +20,7 @@ export type Database = {
           created_at: string
           date: string
           id: string
+          invoice_for: string
           patient_id: string
           payment_method: string | null
           status: string
@@ -30,6 +31,7 @@ export type Database = {
           created_at?: string
           date: string
           id?: string
+          invoice_for?: string
           patient_id: string
           payment_method?: string | null
           status?: string
@@ -40,6 +42,7 @@ export type Database = {
           created_at?: string
           date?: string
           id?: string
+          invoice_for?: string
           patient_id?: string
           payment_method?: string | null
           status?: string
@@ -91,7 +94,11 @@ export type Database = {
           clinic_id: string
           cpf: string | null
           created_at: string
+          father_cpf: string | null
+          father_name: string | null
           id: string
+          mother_cpf: string | null
+          mother_name: string | null
           name: string
           responsible_cpf: string | null
           responsible_name: string | null
@@ -100,7 +107,11 @@ export type Database = {
           clinic_id: string
           cpf?: string | null
           created_at?: string
+          father_cpf?: string | null
+          father_name?: string | null
           id?: string
+          mother_cpf?: string | null
+          mother_name?: string | null
           name: string
           responsible_cpf?: string | null
           responsible_name?: string | null
@@ -109,7 +120,11 @@ export type Database = {
           clinic_id?: string
           cpf?: string | null
           created_at?: string
+          father_cpf?: string | null
+          father_name?: string | null
           id?: string
+          mother_cpf?: string | null
+          mother_name?: string | null
           name?: string
           responsible_cpf?: string | null
           responsible_name?: string | null

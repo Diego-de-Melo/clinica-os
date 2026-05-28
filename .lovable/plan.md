@@ -1,50 +1,86 @@
-## Mudanças solicitadas
 
-### 1. Contador — restrições
-- Esconder o botão "Novo atendimento" no `/dashboard` para `contador` (só `admin` cria atendimentos).
-- Backend `createAttendance`: trocar `assertStaffRole` por `assertAdminRole` (somente admin insere).
-- No dropdown de status do Dashboard, quando o usuário for `contador`, mostrar apenas `Pendente`, `CPF Inválido`, `Emitido` (ocultar `Corrigido`). Admin continua vendo todos.
+## 1. Pacientes — campos pai/mãe e edição direta
 
-### 2. Ações em linha (Inline / Direct Toggle)
-Substituir os menus `DropdownMenu` por botões/toggles diretos visíveis na linha:
+**Banco** (migration):
+- Adicionar em `public.patients`: `father_name text`, `father_cpf text`, `mother_name text`, `mother_cpf text`.
+- Manter `responsible_name`/`responsible_cpf` por compatibilidade (não usados na UI nova).
 
-**`/master-admin` — tabela de clínicas:** trocar o "⋯" por uma barra de ações inline:
-- Switch (Direct Toggle) para Ativo/Inativo
-- Botão "Renovar +30"
-- Botão "Vencimento" (abre dialog de data)
-- Botão "Editar" (novo — item 4)
-- Botão "Remover" (ícone lixeira, com confirm)
+**Server fns** (`src/lib/patients.functions.ts`):
+- Estender `patientInput` com os 4 novos campos.
+- `updatePatient` já existe — usar.
 
-**`/pacientes`:** já é inline — manter, só adicionar botão "Editar" se aplicável (não solicitado para admin neste item).
+**UI** (`src/routes/_app/pacientes.tsx`):
+- Remover botão "Ver detalhes".
+- Tornar o nome do paciente clicável (admin) abrindo `EditPatientDialog` em vez de navegar para `/pacientes/$id`. Para contador/usuário, segue como Link para detalhes (somente leitura).
+- `EditPatientDialog`: formulário com Nome, CPF, Pai (nome + CPF), Mãe (nome + CPF). Botão "Salvar" chama `updatePatient`.
+- `NewPatientDialog`: trocar campos de "responsável" por blocos Pai/Mãe.
+- Botão Remover continua inline (admin).
 
-**`/equipe`:** se houver dropdown de papel/remoção, transformar em select inline + botão remover (verificar arquivo no momento da implementação).
+**Detalhe** (`src/routes/_app/pacientes.$id.tsx`):
+- Substituir campos "Responsável/CPF do responsável" por Pai, CPF do pai, Mãe, CPF da mãe.
 
-### 3. Dashboard — ação e status
-- Manter coluna Status já existente.
-- Adicionar nova coluna **Ações** ao final da tabela `/dashboard`:
-  - Admin: ícone lixeira (remove atendimento via `deleteAttendance` já existente).
-  - Contador: sem ações (somente troca de status via select inline já presente).
+## 2. Equipe — alterar papel (admin)
 
-### 4. Editar clínica no Master Admin
-- Adicionar botão "Editar" inline (ícone lápis) que abre `EditClinicDialog`.
-- Dialog edita `name`, `status`, `expiration_date` em um único form e chama `updateClinic` (já aceita `name`, `status`, `expirationDate`).
-- (Admin não recebe botão de editar, conforme escolha.)
+**Server fn** (`src/lib/team.functions.ts`):
+- Novo `updateTeamMemberRole({ id, role })` protegido por `requireClinicAdmin`. Atualiza `profiles.role` via `supabaseAdmin` validando que o alvo pertence à mesma `clinic_id` e que não é o próprio admin (evita auto-rebaixamento).
 
-### 5. Bug do "Renovar +30 dias"
-Corrigir cálculo em `master-admin.tsx`:
+**UI** (`src/routes/_app/equipe.tsx`):
+- Coluna "Papel": trocar `Badge` por `<Select>` inline com opções Admin/Contador/Usuário (somente para outros membros; próprio admin permanece Badge).
+- `onValueChange` chama `updateTeamMemberRoleFn` + invalida `["team"]`.
+
+## 3. Novo atendimento — método de pagamento como Select + destinatário da nota
+
+**Banco** (mesma migration acima):
+- `attendances.invoice_for text not null default 'patient'` com CHECK em ('patient','father','mother').
+
+**Constantes** (`src/lib/attendances.functions.ts`):
+- Exportar `PAYMENT_METHODS = ['Pix','Dinheiro','Cartão de Crédito','Cartão de Débito','Boleto','Transferência']`.
+- Exportar `INVOICE_FOR = ['patient','father','mother']` com labels.
+- Estender `attInput` com `invoice_for` (default 'patient'); `payment_method` continua opcional mas validado contra a lista.
+
+**UI `NewAttendanceDialog`** (`src/routes/_app/dashboard.tsx`):
+- Trocar `Input` de pagamento por `<Select>` com `PAYMENT_METHODS`.
+- Novo `<Select>` "Emitir nota para": Paciente / Pai / Mãe — opções desabilitadas quando o paciente selecionado não tiver o respectivo nome cadastrado (lookup local na lista de pacientes).
+
+## 4. Dashboard — mostrar destinatário e tornar clicável
+
+**UI** (`src/routes/_app/dashboard.tsx`):
+- Nova coluna "Emitir para" exibindo o nome efetivo (paciente / pai / mãe) + sub-label do papel.
+- Tornar essa célula um `Link` para `/pacientes/$id` (com query `?focus=<attendanceId>` opcional para realce).
+- A página de detalhe do paciente já lista todo o histórico de atendimentos — adicionar coluna "Emitir para" lá também.
+
+## 5. Fluxo de status — Contador vs Admin
+
+Regra explícita por papel, substituindo a lógica atual `statusOptions.filter(s !== status)`:
 
 ```text
-base = max(hoje, expiration_date atual)
-nova = base + 30 dias
+Contador (apenas, demais opções escondidas):
+  Pendente      → [Emitir, CPF Inválido]
+  CPF Inválido  → (nenhuma ação — aguardando admin)
+  Emitido       → [Reabrir (=Pendente), CPF Inválido]
+
+Admin:
+  Pendente      → (nenhuma ação de status — aguarda contador)
+  CPF Inválido  → [Corrigir]  (Corrigir = set status='Pendente')
+  Emitido       → (nenhuma ação de status)
+  + Remover atendimento (já existe)
+
+Usuário: somente leitura.
 ```
 
-Substitui o atual `new Date()` + 30 (que ignora a data vigente) pela soma a partir do maior entre hoje e o vencimento atual, preservando renovações antecipadas.
+Implementação: nova função `allowedTransitions(role, status): AttendanceStatus[]` em `attendances.functions.ts` (também usada no server para validar — `updateAttendanceStatus` checa transição permitida por papel além do `assertStaffRole`). Rotular "Reabrir" e "Corrigir" mapeando para `Pendente`.
+
+Botão "Novo atendimento" continua só para admin (já está assim).
 
 ## Arquivos afetados
 
-- `src/lib/attendances.functions.ts` — `createAttendance` passa a exigir `admin`.
-- `src/routes/_app/dashboard.tsx` — esconder botão "Novo atendimento" para contador; filtrar statuses do select por papel; nova coluna Ações com remover (admin).
-- `src/routes/master-admin.tsx` — substituir DropdownMenu por ações inline (Switch ativo/inativo, Renovar, Vencimento, Editar, Remover); novo `EditClinicDialog`; corrigir cálculo de "Renovar +30".
-- `src/routes/_app/equipe.tsx` — revisar e converter ações para inline (se houver dropdown).
+- `supabase/migrations/<novo>.sql` — adiciona colunas em `patients` e `attendances`.
+- `src/lib/patients.functions.ts` — schema com pai/mãe.
+- `src/lib/attendances.functions.ts` — `invoice_for`, `PAYMENT_METHODS`, `allowedTransitions`, validação no `updateAttendanceStatus`.
+- `src/lib/team.functions.ts` — `updateTeamMemberRole`.
+- `src/routes/_app/pacientes.tsx` — remover "Ver detalhes", nome clicável → editar (admin), novo dialog, campos pai/mãe.
+- `src/routes/_app/pacientes.$id.tsx` — exibir pai/mãe e coluna "Emitir para".
+- `src/routes/_app/equipe.tsx` — Select inline de papel.
+- `src/routes/_app/dashboard.tsx` — Select de pagamento, Select destinatário, coluna clicável, transições por papel.
 
-Sem alterações no banco/RLS (a regra de contador não inserir já cai como erro do server function; RLS atual permite contador inserir mas o guard do servidor bloqueia antes).
+Sem mudanças em RLS (continua `staff` para update; validação fina por papel é server-side dentro do handler).

@@ -1,10 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   listAttendances, updateAttendanceStatus, createAttendance, deleteAttendance,
-  ATTENDANCE_STATUSES, type AttendanceStatus,
+  allowedTransitions, INVOICE_FOR_LABEL, INVOICE_FOR_VALUES, PAYMENT_METHODS,
+  type AttendanceStatus, type InvoiceFor, type PaymentMethod,
 } from "@/lib/attendances.functions";
 import { listPatients } from "@/lib/patients.functions";
 import { useSession } from "@/hooks/use-session";
@@ -25,6 +26,7 @@ import { ActionCell, InlineAction } from "@/components/row-actions";
 import { APP_NAME } from "@/lib/constants";
 import { toast } from "sonner";
 import { Loader2, Plus, Trash2 } from "lucide-react";
+import type { AppRole } from "@/lib/auth-guards";
 
 export const Route = createFileRoute("/_app/dashboard")({
   head: () => ({
@@ -40,12 +42,18 @@ const STATUS_STYLES: Record<AttendanceStatus, string> = {
   "Emitido": "bg-success/15 text-success",
 };
 
-const STATUS_ACTION_LABEL: Record<AttendanceStatus, string> = {
+const TRANSITION_LABEL: Record<AttendanceStatus, string> = {
   "Pendente": "Reabrir",
   "CPF Inválido": "CPF inválido",
   "Corrigido": "Corrigir",
   "Emitido": "Emitir",
 };
+
+// Quando admin transita CPF Inválido -> Pendente, chamamos de "Corrigir".
+function actionLabel(role: AppRole, current: AttendanceStatus, target: AttendanceStatus) {
+  if (role === "admin" && current === "CPF Inválido" && target === "Pendente") return "Corrigir";
+  return TRANSITION_LABEL[target];
+}
 
 function StatusBadge({ status }: { status: AttendanceStatus }) {
   return (
@@ -55,6 +63,18 @@ function StatusBadge({ status }: { status: AttendanceStatus }) {
   );
 }
 
+function invoiceName(row: {
+  invoice_for: string;
+  patient: { name: string; father_name: string | null; mother_name: string | null } | null;
+}) {
+  const inv = row.invoice_for as InvoiceFor;
+  const p = row.patient;
+  if (!p) return "—";
+  if (inv === "father") return p.father_name || "—";
+  if (inv === "mother") return p.mother_name || "—";
+  return p.name;
+}
+
 function DashboardPage() {
   const qc = useQueryClient();
   const { data: session } = useSession();
@@ -62,12 +82,8 @@ function DashboardPage() {
   const updateFn = useServerFn(updateAttendanceStatus);
   const deleteFn = useServerFn(deleteAttendance);
 
-  const isAdmin = session?.role === "admin";
-  const isContador = session?.role === "contador";
-  const canEdit = isAdmin || isContador;
-  const statusOptions = isContador
-    ? (["Pendente", "CPF Inválido", "Emitido"] as AttendanceStatus[])
-    : (ATTENDANCE_STATUSES as readonly AttendanceStatus[]);
+  const role = (session?.role ?? "usuario") as AppRole;
+  const isAdmin = role === "admin";
 
   const { data, isLoading } = useQuery({
     queryKey: ["attendances"],
@@ -126,6 +142,7 @@ function DashboardPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Paciente</TableHead>
+              <TableHead>Emitir para</TableHead>
               <TableHead>Data</TableHead>
               <TableHead>Valor</TableHead>
               <TableHead>Pagamento</TableHead>
@@ -142,9 +159,26 @@ function DashboardPage() {
             )}
             {rows.map((r) => {
               const status = r.status as AttendanceStatus;
+              const transitions = allowedTransitions(role, status);
+              const patientId = r.patient?.id;
+              const inv = r.invoice_for as InvoiceFor;
               return (
                 <TableRow key={r.id}>
-                  <TableCell className="font-medium">{r.patient?.name ?? "—"}</TableCell>
+                  <TableCell className="font-medium">
+                    {patientId ? (
+                      <Link to="/pacientes/$id" params={{ id: patientId }} className="hover:underline">
+                        {r.patient?.name ?? "—"}
+                      </Link>
+                    ) : "—"}
+                  </TableCell>
+                  <TableCell>
+                    {patientId ? (
+                      <Link to="/pacientes/$id" params={{ id: patientId }} className="hover:underline">
+                        <div className="font-medium">{invoiceName(r as never)}</div>
+                        <div className="text-xs text-muted-foreground">{INVOICE_FOR_LABEL[inv] ?? "—"}</div>
+                      </Link>
+                    ) : "—"}
+                  </TableCell>
                   <TableCell>{new Date(r.date).toLocaleDateString("pt-BR")}</TableCell>
                   <TableCell>{Number(r.value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</TableCell>
                   <TableCell className="text-muted-foreground">{r.payment_method ?? "—"}</TableCell>
@@ -152,18 +186,19 @@ function DashboardPage() {
                     <StatusBadge status={status} />
                   </TableCell>
                   <TableCell className="text-right">
-                    {canEdit ? (
+                    {transitions.length === 0 && !isAdmin ? (
+                      <span className="text-xs text-muted-foreground">Somente leitura</span>
+                    ) : (
                       <ActionCell>
-                        {statusOptions
-                          .filter((s) => s !== status)
-                          .map((target) => (
-                            <InlineAction
-                              key={target}
-                              label={STATUS_ACTION_LABEL[target]}
-                              disabled={updateMut.isPending}
-                              onClick={() => updateMut.mutate({ id: r.id, status: target })}
-                            />
-                          ))}
+                        {transitions.map((target) => (
+                          <InlineAction
+                            key={target}
+                            label={actionLabel(role, status, target)}
+                            disabled={updateMut.isPending}
+                            variant={target === "CPF Inválido" ? "destructive" : "default"}
+                            onClick={() => updateMut.mutate({ id: r.id, status: target })}
+                          />
+                        ))}
                         {isAdmin && (
                           <InlineAction
                             label="Remover"
@@ -176,8 +211,6 @@ function DashboardPage() {
                           />
                         )}
                       </ActionCell>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">Somente leitura</span>
                     )}
                   </TableCell>
                 </TableRow>
@@ -219,26 +252,34 @@ function NewAttendanceDialog({ onCreated }: { onCreated: () => void }) {
   const [patientId, setPatientId] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [value, setValue] = useState("");
-  const [method, setMethod] = useState<string>("");
+  const [method, setMethod] = useState<PaymentMethod | "">("");
+  const [invoiceFor, setInvoiceFor] = useState<InvoiceFor>("patient");
   const [loading, setLoading] = useState(false);
+
+  const selectedPatient = useMemo(
+    () => (patients ?? []).find((p) => p.id === patientId),
+    [patients, patientId],
+  );
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     const num = Number(value.replace(",", "."));
     if (!patientId) return toast.error("Selecione um paciente");
     if (!(num > 0)) return toast.error("Valor inválido");
+    if (!method) return toast.error("Selecione o método de pagamento");
     setLoading(true);
     try {
       await createFn({
         data: {
           patient_id: patientId, date, value: num,
-          payment_method: method || null,
+          payment_method: method,
           status: "Pendente",
+          invoice_for: invoiceFor,
         },
       });
       toast.success("Atendimento registrado");
       setOpen(false);
-      setPatientId(""); setValue(""); setMethod("");
+      setPatientId(""); setValue(""); setMethod(""); setInvoiceFor("patient");
       onCreated();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro");
@@ -276,15 +317,41 @@ function NewAttendanceDialog({ onCreated }: { onCreated: () => void }) {
               <Input type="text" inputMode="decimal" placeholder="0,00" value={value} onChange={(e) => setValue(e.target.value)} required />
             </div>
           </div>
-          <div className="space-y-2">
-            <Label>Método de pagamento (opcional)</Label>
-            <Input
-              type="text"
-              placeholder="Ex.: Pix, Dinheiro, Cartão…"
-              value={method}
-              onChange={(e) => setMethod(e.target.value)}
-              maxLength={40}
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>Método de pagamento</Label>
+              <Select value={method} onValueChange={(v) => setMethod(v as PaymentMethod)}>
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  {PAYMENT_METHODS.map((m) => (
+                    <SelectItem key={m} value={m}>{m}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Emitir nota para</Label>
+              <Select value={invoiceFor} onValueChange={(v) => setInvoiceFor(v as InvoiceFor)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {INVOICE_FOR_VALUES.map((v) => {
+                    const disabled =
+                      (v === "father" && !selectedPatient?.father_name) ||
+                      (v === "mother" && !selectedPatient?.mother_name);
+                    const suffix =
+                      v === "father" && selectedPatient?.father_name ? ` — ${selectedPatient.father_name}`
+                      : v === "mother" && selectedPatient?.mother_name ? ` — ${selectedPatient.mother_name}`
+                      : v === "patient" && selectedPatient ? ` — ${selectedPatient.name}`
+                      : "";
+                    return (
+                      <SelectItem key={v} value={v} disabled={disabled}>
+                        {INVOICE_FOR_LABEL[v]}{suffix}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <DialogFooter>
             <Button type="submit" disabled={loading}>
