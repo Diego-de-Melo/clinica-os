@@ -23,6 +23,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { ActionCell, InlineAction } from "@/components/row-actions";
+import { PatientCombobox } from "@/components/patient-combobox";
 import { APP_NAME } from "@/lib/constants";
 import { toast } from "sonner";
 import { Loader2, Plus, Trash2 } from "lucide-react";
@@ -49,7 +50,11 @@ const TRANSITION_LABEL: Record<AttendanceStatus, string> = {
   "Emitido": "Emitir",
 };
 
-// Quando admin transita CPF Inválido -> Pendente, chamamos de "Corrigir".
+const MONTHS = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+];
+
 function actionLabel(role: AppRole, current: AttendanceStatus, target: AttendanceStatus) {
   if (role === "admin" && current === "CPF Inválido" && target === "Pendente") return "Corrigir";
   return TRANSITION_LABEL[target];
@@ -63,16 +68,23 @@ function StatusBadge({ status }: { status: AttendanceStatus }) {
   );
 }
 
-function invoiceName(row: {
-  invoice_for: string;
-  patient: { name: string; father_name: string | null; mother_name: string | null } | null;
-}) {
+type PatientLite = {
+  id: string;
+  name: string;
+  cpf: string | null;
+  father_name: string | null;
+  father_cpf: string | null;
+  mother_name: string | null;
+  mother_cpf: string | null;
+};
+
+function invoiceRecipient(row: { invoice_for: string; patient: PatientLite | null }) {
   const inv = row.invoice_for as InvoiceFor;
   const p = row.patient;
-  if (!p) return "—";
-  if (inv === "father") return p.father_name || "—";
-  if (inv === "mother") return p.mother_name || "—";
-  return p.name;
+  if (!p) return { name: "—", cpf: null as string | null };
+  if (inv === "father") return { name: p.father_name || "—", cpf: p.father_cpf };
+  if (inv === "mother") return { name: p.mother_name || "—", cpf: p.mother_cpf };
+  return { name: p.name, cpf: p.cpf };
 }
 
 function DashboardPage() {
@@ -109,11 +121,36 @@ function DashboardPage() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Erro"),
   });
 
-  const rows = data ?? [];
+  const allRows = data ?? [];
+
+  // Filters: year / month / day
+  const [year, setYear] = useState<string>("all");
+  const [month, setMonth] = useState<string>("all");
+  const [day, setDay] = useState<string>("all");
+
+  const availableYears = useMemo(() => {
+    const set = new Set<number>();
+    allRows.forEach((r) => set.add(new Date(r.date).getFullYear()));
+    set.add(new Date().getFullYear());
+    return Array.from(set).sort((a, b) => b - a);
+  }, [allRows]);
+
+  const rows = useMemo(() => {
+    return allRows.filter((r) => {
+      const d = new Date(r.date);
+      if (year !== "all" && d.getFullYear() !== Number(year)) return false;
+      if (month !== "all" && d.getMonth() + 1 !== Number(month)) return false;
+      if (day !== "all" && d.getDate() !== Number(day)) return false;
+      return true;
+    });
+  }, [allRows, year, month, day]);
+
   const total = rows.reduce((s, r) => s + Number(r.value), 0);
   const pendentes = rows.filter((r) => r.status === "Pendente").length;
   const invalidos = rows.filter((r) => r.status === "CPF Inválido").length;
   const emitidos = rows.filter((r) => r.status === "Emitido").length;
+
+  const hasFilter = year !== "all" || month !== "all" || day !== "all";
 
   return (
     <div className="space-y-6 max-w-7xl">
@@ -135,8 +172,42 @@ function DashboardPage() {
       </div>
 
       <div className="rounded-xl border bg-card">
-        <div className="px-5 py-4 border-b">
+        <div className="px-5 py-4 border-b flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-sm font-medium">Últimos atendimentos</h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <Select value={year} onValueChange={(v) => { setYear(v); if (v === "all") { setMonth("all"); setDay("all"); } }}>
+              <SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos anos</SelectItem>
+                {availableYears.map((y) => (
+                  <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={month} onValueChange={(v) => { setMonth(v); if (v === "all") setDay("all"); }} disabled={year === "all"}>
+              <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos meses</SelectItem>
+                {MONTHS.map((m, i) => (
+                  <SelectItem key={i} value={String(i + 1)}>{m}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={day} onValueChange={setDay} disabled={month === "all"}>
+              <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos dias</SelectItem>
+                {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                  <SelectItem key={d} value={String(d)}>{d}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {hasFilter && (
+              <Button variant="ghost" size="sm" onClick={() => { setYear("all"); setMonth("all"); setDay("all"); }}>
+                Limpar
+              </Button>
+            )}
+          </div>
         </div>
         <Table>
           <TableHeader>
@@ -155,27 +226,34 @@ function DashboardPage() {
               <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Carregando…</TableCell></TableRow>
             )}
             {!isLoading && rows.length === 0 && (
-              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhum atendimento ainda.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhum atendimento.</TableCell></TableRow>
             )}
             {rows.map((r) => {
               const status = r.status as AttendanceStatus;
               const transitions = allowedTransitions(role, status);
               const patientId = r.patient?.id;
               const inv = r.invoice_for as InvoiceFor;
+              const recipient = invoiceRecipient(r as never);
               return (
                 <TableRow key={r.id}>
                   <TableCell className="font-medium">
                     {patientId ? (
                       <Link to="/pacientes/$id" params={{ id: patientId }} className="hover:underline">
-                        {r.patient?.name ?? "—"}
+                        <div>{r.patient?.name ?? "—"}</div>
+                        <div className="text-xs text-muted-foreground font-normal">
+                          CPF: {r.patient?.cpf ?? "—"}
+                        </div>
                       </Link>
                     ) : "—"}
                   </TableCell>
                   <TableCell>
                     {patientId ? (
                       <Link to="/pacientes/$id" params={{ id: patientId }} className="hover:underline">
-                        <div className="font-medium">{invoiceName(r as never)}</div>
-                        <div className="text-xs text-muted-foreground">{INVOICE_FOR_LABEL[inv] ?? "—"}</div>
+                        <div className="font-medium">{recipient.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {INVOICE_FOR_LABEL[inv] ?? "—"}
+                          {recipient.cpf ? ` · CPF: ${recipient.cpf}` : ""}
+                        </div>
                       </Link>
                     ) : "—"}
                   </TableCell>
@@ -298,14 +376,11 @@ function NewAttendanceDialog({ onCreated }: { onCreated: () => void }) {
         <form onSubmit={submit} className="space-y-4">
           <div className="space-y-2">
             <Label>Paciente</Label>
-            <Select value={patientId} onValueChange={setPatientId}>
-              <SelectTrigger><SelectValue placeholder="Selecione um paciente" /></SelectTrigger>
-              <SelectContent>
-                {(patients ?? []).map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <PatientCombobox
+              value={patientId}
+              onChange={setPatientId}
+              items={(patients ?? []).map((p) => ({ id: p.id, name: p.name }))}
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
