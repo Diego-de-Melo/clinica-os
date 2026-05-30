@@ -135,6 +135,9 @@ export const bulkCreatePatients = createServerFn({ method: "POST" })
     const { error, count } = await supabase
       .from("patients")
       .insert(rows, { count: "exact" });
-    if (error) throw new Error(error.message);
+    if (error) {
+      if (error.code === "23505") throw new Error("Importação contém pacientes duplicados (nome ou CPF já existente)");
+      throw new Error(error.message);
+    }
     return { ok: true, inserted: count ?? rows.length };
   });
