@@ -63,12 +63,26 @@ export const createPatient = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const prof = await requireClinicProfile(supabase, userId);
     assertAdminRole(prof.role, "Apenas Admin pode cadastrar pacientes");
+
+    // Duplicate name check (case-insensitive) within the same clinic
+    const trimmed = data.name.trim();
+    const { data: dupName } = await supabase
+      .from("patients")
+      .select("id")
+      .eq("clinic_id", prof.clinic_id)
+      .ilike("name", trimmed)
+      .maybeSingle();
+    if (dupName) throw new Error(`Já existe um paciente com o nome "${trimmed}" nesta clínica`);
+
     const { data: row, error } = await supabase
       .from("patients")
-      .insert({ ...data, clinic_id: prof.clinic_id })
+      .insert({ ...data, name: trimmed, clinic_id: prof.clinic_id })
       .select()
       .single();
-    if (error) throw new Error(error.message);
+    if (error) {
+      if (error.code === "23505") throw new Error("CPF já cadastrado para outro paciente nesta clínica");
+      throw new Error(error.message);
+    }
     return row;
   });
 
