@@ -73,12 +73,19 @@ function PatientDetail() {
             )}
             {data.attendances.map((a) => {
               const inv = (a as { invoice_for?: string }).invoice_for as InvoiceFor | undefined;
+              const recipientCpf =
+                inv === "father" ? data.patient.father_cpf
+                : inv === "mother" ? data.patient.mother_cpf
+                : data.patient.cpf;
               return (
                 <TableRow key={a.id}>
                   <TableCell>{new Date(a.date).toLocaleDateString("pt-BR")}</TableCell>
                   <TableCell>{Number(a.value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</TableCell>
                   <TableCell>{a.payment_method ?? "—"}</TableCell>
-                  <TableCell>{inv ? INVOICE_FOR_LABEL[inv] : "—"}</TableCell>
+                  <TableCell>
+                    <div>{inv ? INVOICE_FOR_LABEL[inv] : "—"}</div>
+                    {recipientCpf && <div className="text-xs text-muted-foreground">CPF: {recipientCpf}</div>}
+                  </TableCell>
                   <TableCell>
                     {a.status === "Emitido" ? (
                       <Badge className="bg-success/15 text-success border-0">Emitido</Badge>
