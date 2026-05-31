@@ -9,7 +9,7 @@ import {
   type ClinicLifecycle,
 } from "@/lib/clinic-utils";
 import {
-  listClinics, createClinicWithAdmin, updateClinic, deleteClinic,
+  listClinics, createClinicWithAdmin, updateClinic, deleteClinic, resendClinicAdminInvite,
 } from "@/lib/clinics.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/use-session";
@@ -41,6 +41,7 @@ import {
   AlertTriangle,
   RefreshCw,
   Pencil,
+  Mail,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -64,6 +65,7 @@ function SuperAdminPage() {
   const listFn = useServerFn(listClinics);
   const updateFn = useServerFn(updateClinic);
   const deleteFn = useServerFn(deleteClinic);
+  const resendFn = useServerFn(resendClinicAdminInvite);
 
   const [search, setSearch] = useState("");
   const [lifecycleFilter, setLifecycleFilter] = useState<ClinicLifecycle | "all">("all");
@@ -90,6 +92,12 @@ function SuperAdminPage() {
   const delMut = useMutation({
     mutationFn: (id: string) => deleteFn({ data: { id } }),
     onSuccess: () => { toast.success("Clínica removida"); qc.invalidateQueries({ queryKey: ["clinics"] }); },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Erro"),
+  });
+  const resendMut = useMutation({
+    mutationFn: (clinicId: string) =>
+      resendFn({ data: { clinicId, redirectTo: `${window.location.origin}/aceitar-convite` } }),
+    onSuccess: (r) => toast.success(`Convite reenviado para ${r.email}`),
     onError: (e) => toast.error(e instanceof Error ? e.message : "Erro"),
   });
 
@@ -243,6 +251,14 @@ function SuperAdminPage() {
                           clinic={c}
                           onSave={(patch) => updMut.mutate({ id: c.id, ...patch })}
                         />
+                        {c.admins.length > 0 && (
+                          <InlineAction
+                            label="Reenviar convite"
+                            icon={Mail}
+                            disabled={resendMut.isPending}
+                            onClick={() => resendMut.mutate(c.id)}
+                          />
+                        )}
                         <InlineAction
                           label="Remover"
                           icon={Trash2}
@@ -411,7 +427,6 @@ function NewClinicDialog({ onDone }: { onDone: () => void }) {
   const fn = useServerFn(createClinicWithAdmin);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [expiration, setExpiration] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() + 30);
     return d.toISOString().slice(0, 10);
@@ -425,13 +440,15 @@ function NewClinicDialog({ onDone }: { onDone: () => void }) {
     try {
       await fn({
         data: {
-          name, adminEmail: email, adminPassword: password,
+          name,
+          adminEmail: email,
           expirationDate: expiration ? new Date(expiration + "T23:59:59").toISOString() : null,
           status,
+          redirectTo: `${window.location.origin}/aceitar-convite`,
         },
       });
-      toast.success("Clínica criada");
-      setOpen(false); setName(""); setEmail(""); setPassword("");
+      toast.success(`Convite enviado para ${email}`);
+      setOpen(false); setName(""); setEmail("");
       onDone();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro");
@@ -446,25 +463,29 @@ function NewClinicDialog({ onDone }: { onDone: () => void }) {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Nova clínica</DialogTitle>
-          <DialogDescription>Cria a clínica e o login do Admin responsável.</DialogDescription>
+          <DialogDescription>
+            Enviamos um convite seguro por email. O admin define a própria senha no primeiro acesso e pode também entrar com Google.
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-4">
           <div className="space-y-2"><Label>Nome da clínica</Label><Input required value={name} onChange={(e) => setName(e.target.value)} /></div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2"><Label>Email do admin</Label><Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-            <div className="space-y-2"><Label>Senha (mín. 8)</Label><Input type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} /></div>
-          </div>
+          <div className="space-y-2"><Label>Email do admin</Label><Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2"><Label>Vencimento</Label><Input type="date" value={expiration} onChange={(e) => setExpiration(e.target.value)} /></div>
             <div className="space-y-2">
               <Label>Status inicial</Label>
-              <select value={status} onChange={(e) => setStatus(e.target.value as "ativo" | "inativo")} className="h-9 w-full rounded-md border bg-background px-3 text-sm">
+              <select value={status} onChange={(e) => setStatus(e.target.value as "ativo" | "inativo")} className="h-10 w-full rounded-xl border bg-card px-3 text-sm">
                 <option value="ativo">Ativo</option>
                 <option value="inativo">Inativo</option>
               </select>
             </div>
           </div>
-          <DialogFooter><Button type="submit" disabled={loading}>{loading && <Loader2 className="h-4 w-4 animate-spin" />} Criar</Button></DialogFooter>
+          <DialogFooter>
+            <Button type="submit" disabled={loading}>
+              {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+              Enviar convite
+            </Button>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

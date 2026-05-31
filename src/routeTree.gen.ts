@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as MasterAdminRouteImport } from './routes/master-admin'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as BloqueioRouteImport } from './routes/bloqueio'
+import { Route as AceitarConviteRouteImport } from './routes/aceitar-convite'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppPacientesRouteImport } from './routes/_app/pacientes'
@@ -32,6 +33,11 @@ const LoginRoute = LoginRouteImport.update({
 const BloqueioRoute = BloqueioRouteImport.update({
   id: '/bloqueio',
   path: '/bloqueio',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AceitarConviteRoute = AceitarConviteRouteImport.update({
+  id: '/aceitar-convite',
+  path: '/aceitar-convite',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppRoute = AppRouteImport.update({
@@ -66,6 +72,7 @@ const AppPacientesIdRoute = AppPacientesIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/aceitar-convite': typeof AceitarConviteRoute
   '/bloqueio': typeof BloqueioRoute
   '/login': typeof LoginRoute
   '/master-admin': typeof MasterAdminRoute
@@ -76,6 +83,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/aceitar-convite': typeof AceitarConviteRoute
   '/bloqueio': typeof BloqueioRoute
   '/login': typeof LoginRoute
   '/master-admin': typeof MasterAdminRoute
@@ -88,6 +96,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
+  '/aceitar-convite': typeof AceitarConviteRoute
   '/bloqueio': typeof BloqueioRoute
   '/login': typeof LoginRoute
   '/master-admin': typeof MasterAdminRoute
@@ -100,6 +109,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/aceitar-convite'
     | '/bloqueio'
     | '/login'
     | '/master-admin'
@@ -110,6 +120,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/aceitar-convite'
     | '/bloqueio'
     | '/login'
     | '/master-admin'
@@ -121,6 +132,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_app'
+    | '/aceitar-convite'
     | '/bloqueio'
     | '/login'
     | '/master-admin'
@@ -133,6 +145,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
+  AceitarConviteRoute: typeof AceitarConviteRoute
   BloqueioRoute: typeof BloqueioRoute
   LoginRoute: typeof LoginRoute
   MasterAdminRoute: typeof MasterAdminRoute
@@ -159,6 +172,13 @@ declare module '@tanstack/react-router' {
       path: '/bloqueio'
       fullPath: '/bloqueio'
       preLoaderRoute: typeof BloqueioRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/aceitar-convite': {
+      id: '/aceitar-convite'
+      path: '/aceitar-convite'
+      fullPath: '/aceitar-convite'
+      preLoaderRoute: typeof AceitarConviteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app': {
@@ -235,6 +255,7 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
+  AceitarConviteRoute: AceitarConviteRoute,
   BloqueioRoute: BloqueioRoute,
   LoginRoute: LoginRoute,
   MasterAdminRoute: MasterAdminRoute,
@@ -242,13 +263,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
