@@ -310,9 +310,9 @@ function StatCard({
     : accent === "destructive" ? "text-destructive"
     : "text-foreground";
   return (
-    <div className="rounded-xl border bg-card p-5">
-      <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className={`mt-2 text-2xl font-semibold ${color}`}>{value}</div>
+    <div className="rounded-2xl border bg-card p-6 shadow-card flex flex-col justify-between min-h-[140px]">
+      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className={`text-3xl font-bold tracking-tight ${color}`}>{value}</div>
     </div>
   );
 }
