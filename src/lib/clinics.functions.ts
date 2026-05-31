@@ -56,9 +56,9 @@ export const createClinicWithAdmin = createServerFn({ method: "POST" })
       .object({
         name: z.string().trim().min(2).max(120),
         adminEmail: z.string().email(),
-        adminPassword: z.string().min(8).max(72),
         expirationDate: z.string().datetime().nullable().optional(),
         status: z.enum(["ativo", "inativo"]).default("inativo"),
+        redirectTo: z.string().url().optional(),
       })
       .parse(input),
   )
@@ -74,19 +74,44 @@ export const createClinicWithAdmin = createServerFn({ method: "POST" })
       .single();
     if (cErr) throw new Error(cErr.message);
 
-    const { data: created, error: uErr } =
-      await supabaseAdmin.auth.admin.createUser({
-        email: data.adminEmail,
-        password: data.adminPassword,
-        email_confirm: true,
-        user_metadata: { role: "admin", clinic_id: clinic.id },
+    const { data: invited, error: uErr } =
+      await supabaseAdmin.auth.admin.inviteUserByEmail(data.adminEmail, {
+        data: { role: "admin", clinic_id: clinic.id },
+        redirectTo: data.redirectTo,
       });
     if (uErr) {
       await supabaseAdmin.from("clinics").delete().eq("id", clinic.id);
       throw new Error(uErr.message);
     }
 
-    return { clinic, userId: created.user?.id };
+    return { clinic, userId: invited.user?.id };
+  });
+
+export const resendClinicAdminInvite = createServerFn({ method: "POST" })
+  .middleware([requireSuperAdmin])
+  .inputValidator((input) =>
+    z
+      .object({
+        clinicId: z.string().uuid(),
+        redirectTo: z.string().url().optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { data: profs, error: pErr } = await supabaseAdmin
+      .from("profiles")
+      .select("email, role")
+      .eq("clinic_id", data.clinicId);
+    if (pErr) throw new Error(pErr.message);
+    const admin = (profs ?? []).find((p) => p.role === "admin");
+    if (!admin?.email) throw new Error("Nenhum admin encontrado para esta clínica.");
+
+    const { error } = await supabaseAdmin.auth.admin.inviteUserByEmail(admin.email, {
+      data: { role: "admin", clinic_id: data.clinicId },
+      redirectTo: data.redirectTo,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true, email: admin.email };
   });
 
 export const updateClinic = createServerFn({ method: "POST" })
