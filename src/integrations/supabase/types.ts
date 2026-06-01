@@ -19,8 +19,10 @@ export type Database = {
           clinic_id: string
           created_at: string
           date: string
+          deleted_at: string | null
           id: string
           invoice_for: string
+          observacoes: string | null
           patient_id: string
           payment_method: string | null
           status: string
@@ -30,8 +32,10 @@ export type Database = {
           clinic_id: string
           created_at?: string
           date: string
+          deleted_at?: string | null
           id?: string
           invoice_for?: string
+          observacoes?: string | null
           patient_id: string
           payment_method?: string | null
           status?: string
@@ -41,8 +45,10 @@ export type Database = {
           clinic_id?: string
           created_at?: string
           date?: string
+          deleted_at?: string | null
           id?: string
           invoice_for?: string
+          observacoes?: string | null
           patient_id?: string
           payment_method?: string | null
           status?: string
@@ -64,6 +70,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      audit_logs: {
+        Row: {
+          action: string
+          clinic_id: string | null
+          created_at: string
+          entity: string | null
+          id: string
+          ip: string | null
+          metadata: Json | null
+          record_id: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          clinic_id?: string | null
+          created_at?: string
+          entity?: string | null
+          id?: string
+          ip?: string | null
+          metadata?: Json | null
+          record_id?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          clinic_id?: string | null
+          created_at?: string
+          entity?: string | null
+          id?: string
+          ip?: string | null
+          metadata?: Json | null
+          record_id?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
       }
       clinics: {
         Row: {
@@ -89,11 +134,45 @@ export type Database = {
         }
         Relationships: []
       }
+      consents: {
+        Row: {
+          clinic_id: string | null
+          granted_at: string
+          id: string
+          ip: string | null
+          kind: string
+          revoked_at: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          clinic_id?: string | null
+          granted_at?: string
+          id?: string
+          ip?: string | null
+          kind: string
+          revoked_at?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          clinic_id?: string | null
+          granted_at?: string
+          id?: string
+          ip?: string | null
+          kind?: string
+          revoked_at?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       patients: {
         Row: {
           clinic_id: string
           cpf: string | null
           created_at: string
+          deleted_at: string | null
           father_cpf: string | null
           father_name: string | null
           id: string
@@ -107,6 +186,7 @@ export type Database = {
           clinic_id: string
           cpf?: string | null
           created_at?: string
+          deleted_at?: string | null
           father_cpf?: string | null
           father_name?: string | null
           id?: string
@@ -120,6 +200,7 @@ export type Database = {
           clinic_id?: string
           cpf?: string | null
           created_at?: string
+          deleted_at?: string | null
           father_cpf?: string | null
           father_name?: string | null
           id?: string
@@ -181,8 +262,23 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      dashboard_summary: {
+        Args: { _from?: string; _to?: string }
+        Returns: Json
+      }
       is_clinic_active: { Args: never; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
+      log_audit: {
+        Args: {
+          _action: string
+          _entity?: string
+          _ip?: string
+          _metadata?: Json
+          _record_id?: string
+          _user_agent?: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       app_role: "super_admin" | "admin" | "user" | "contador" | "usuario"

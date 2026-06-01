@@ -87,6 +87,20 @@ function LoginPage() {
               {loading && <Loader2 className="h-4 w-4 animate-spin" />}
               Entrar
             </Button>
+            <button
+              type="button"
+              className="w-full text-xs text-muted-foreground hover:text-foreground text-center"
+              onClick={async () => {
+                if (!email) return toast.error("Digite seu email primeiro");
+                const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                  redirectTo: `${window.location.origin}/aceitar-convite`,
+                });
+                if (error) toast.error(error.message);
+                else toast.success("Enviamos um link de recuperação para o seu email");
+              }}
+            >
+              Esqueci minha senha
+            </button>
           </form>
 
           <div className="my-6 flex items-center gap-3 text-xs text-muted-foreground">

@@ -5,6 +5,7 @@ import {
   assertAdminRole,
   requireClinicProfile,
 } from "@/lib/auth-guards";
+import { logAuditInternal } from "@/lib/audit.functions";
 
 export const listPatients = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -83,6 +84,10 @@ export const createPatient = createServerFn({ method: "POST" })
       if (error.code === "23505") throw new Error("CPF já cadastrado para outro paciente nesta clínica");
       throw new Error(error.message);
     }
+    await logAuditInternal(supabase, {
+      action: "patient.create", entity: "patient", recordId: row.id,
+      metadata: { name: row.name },
+    });
     return row;
   });
 
@@ -101,6 +106,10 @@ export const updatePatient = createServerFn({ method: "POST" })
       .update(rest)
       .eq("id", id);
     if (error) throw new Error(error.message);
+    await logAuditInternal(supabase, {
+      action: "patient.update", entity: "patient", recordId: id,
+      metadata: rest as Record<string, unknown>,
+    });
     return { ok: true };
   });
 
@@ -113,9 +122,12 @@ export const deletePatient = createServerFn({ method: "POST" })
     assertAdminRole(prof.role, "Apenas Admin pode remover pacientes");
     const { error } = await supabase
       .from("patients")
-      .delete()
+      .update({ deleted_at: new Date().toISOString() })
       .eq("id", data.id);
     if (error) throw new Error(error.message);
+    await logAuditInternal(supabase, {
+      action: "patient.delete", entity: "patient", recordId: data.id,
+    });
     return { ok: true };
   });
 

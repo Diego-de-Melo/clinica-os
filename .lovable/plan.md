@@ -1,137 +1,128 @@
+# Plano — Hardening de Segurança + Detalhe do Paciente
 
-## Objetivo
+Escopo confirmado: **Segurança + Página do paciente**, mantendo os 4 perfis atuais (`super_admin`, `admin`, `contador`, `usuario`), incluindo **LGPD** e **Monitoramento/alertas**. **Sem mexer em layout, textos, rotas existentes ou fluxo de negócio.** Só adiciono o que não existe.
 
-1. Aplicar nova identidade visual (paleta teal, cards 16px, sidebar 280px, Inter) em todas as telas, mantendo 100% das funcionalidades, rotas, lógica, banco e APIs.
-2. Substituir o fluxo "Super Admin cria senha do admin da clínica" por um fluxo de convite por e-mail (mais seguro), com primeiro acesso por link único e suporte a login com Google usando o mesmo e-mail.
+## O que já existe (não vou refazer)
+- `clinic_id` + RLS por clínica em `patients`, `attendances`, `profiles`, `clinics`
+- Bloqueio por clínica inativa/expirada (`is_clinic_active`)
+- Convite por e-mail via `inviteUserByEmail` + `/aceitar-convite` + Google
+- Página `/pacientes/:id` com dados + histórico de atendimentos
+- `patient-combobox` com busca, CPF do responsável no dashboard, filtros dia/mês/ano, ordenação recente, anti-duplicado por nome/CPF
+- Índices `clinic_id` e `patient_id` em attendances/patients
 
----
+## Parte 1 — Banco de dados (1 migration)
 
-## Parte 1 — Redesign visual (somente UI)
+### 1.1 Soft delete
+- Adicionar `deleted_at timestamptz NULL` em `patients` e `attendances`
+- Atualizar policies `SELECT` para filtrar `deleted_at IS NULL`
+- Trocar `deletePatient`/`deleteAttendance` por `UPDATE deleted_at = now()` em vez de `DELETE`
 
-### Design tokens (`src/styles.css`)
+### 1.2 Auditoria
+Criar `public.audit_logs`:
+```
+id uuid PK, user_id uuid, clinic_id uuid, action text,
+entity text, record_id uuid, metadata jsonb,
+ip text, user_agent text, created_at timestamptz default now()
+```
+- GRANT `INSERT` para `authenticated`, `ALL` para `service_role`, `SELECT` só para `admin` da própria clínica e `super_admin`
+- Índices: `(clinic_id, created_at desc)`, `(entity, record_id)`
+- Função `public.log_audit(action, entity, record_id, metadata)` SECURITY DEFINER que lê `auth.uid()` + `current_clinic_id()`
 
-Reescrever os tokens em `:root` para a nova paleta (mantendo formato `oklch` para compatibilidade com Tailwind):
+### 1.3 LGPD
+Criar `public.consents`: `id, user_id, clinic_id, kind, granted_at, revoked_at, ip, user_agent`
+- RLS: usuário lê o próprio; admin da clínica lê todos da sua clínica
 
-- `--primary` → teal `#1FA4A5`
-- `--ring` → mesmo teal
-- `--background` → `#F5F7FA`
-- `--card` / `--popover` → `#FFFFFF`
-- `--foreground` → `#0F172A`
-- `--muted-foreground` → `#64748B`
-- `--border` / `--input` → `#E2E8F0`
-- `--success` → `#22C55E`
-- `--destructive` → `#EF4444`
-- `--warning` → âmbar suave
-- `--radius` → `1rem` (16px) — botões/inputs usam `rounded-xl` (12px)
-- Sidebar tokens (`--sidebar`, `--sidebar-primary`, `--sidebar-accent`) alinhados ao novo esquema
-- Adicionar `--shadow-card: 0 1px 2px rgba(0,0,0,.05), 0 4px 12px rgba(0,0,0,.04)` e classe utilitária `.shadow-card`
-- Importar Inter via `<link>` no `src/routes/__root.tsx` `head()` e definir `font-family: Inter` no `body`
+### 1.4 Índices que faltam
+- `idx_attendances_status (clinic_id, status)`
+- `idx_attendances_created (clinic_id, created_at desc)`
+- `idx_attendances_date (clinic_id, date desc)`
+- `idx_audit_logs_clinic_created (clinic_id, created_at desc)`
 
-Versão dark mantida (apenas ajustada para a nova primária).
+### 1.5 Agregado do dashboard (RPC)
+Criar `public.dashboard_summary()` SECURITY DEFINER retornando JSON com totais (total pacientes, total atendimentos, receita do período, contagem por status) — substitui as múltiplas queries do dashboard por **uma chamada**.
 
-### Componentes shadcn ajustados
+## Parte 2 — Server functions
 
-- `Card` ganha `rounded-2xl border-border shadow-card`
-- `Button` variant `default`: `rounded-xl`, hover `bg-[--primary-hover]` (via novo token `--primary-hover`)
-- `Input`/`Select`/`Textarea`: `rounded-xl h-10`
-- `Badge` ganha variantes `success` (verde claro), `warning` (amarelo claro), `danger` (vermelho claro), todas pill (`rounded-full`)
-- `Table`: header `bg-[#F8FAFC] text-muted-foreground`, linhas com hover, container `rounded-2xl overflow-hidden border`
+### 2.1 `src/lib/audit.functions.ts` (novo)
+- `logAudit({ action, entity, recordId, metadata })` — chama RPC `log_audit`
+- Chamado em: `createPatient`, `updatePatient`, `deletePatient` (soft), `createAttendance`, `updateAttendanceStatus`, `deleteAttendance` (soft), `createClinicWithAdmin`, login bem-sucedido (no `getSessionContext` quando primeira chamada da sessão)
+- IP/UA lidos via `getRequest().headers`
 
-### Layout app (`src/routes/_app.tsx`)
+### 2.2 Soft delete
+- `patients.functions.ts` / `attendances.functions.ts`: trocar `.delete()` por `.update({ deleted_at: new Date() })`
+- `list*` já filtra via RLS
 
-- Sidebar fixa 280px (`--sidebar-width: 17.5rem`), itens com `rounded-xl`, ativo `bg-primary text-primary-foreground`, hover `bg-[#F1F5F9]`
-- Itens mantidos por perfil: Dashboard, Pacientes, Equipe (admin)
-- Rodapé da sidebar: avatar com inicial, e-mail, papel (`Admin`/`Contador`/`Usuário`), botão "Sair" — fixado no bottom
-- Header interno: título + subtítulo da página (via slot — cada rota passa `<PageHeader title subtitle />`) e badge de vencimento
-- Fundo `#F5F7FA`
+### 2.3 Dashboard agregado
+- `getDashboardSummary` server fn chamando RPC `dashboard_summary`
+- Dashboard troca múltiplos `useQuery` por **um** `useSuspenseQuery` com `staleTime: 30_000`, refetch a cada 60s
 
-### Telas redesenhadas (sem mudar texto/rotas/lógica)
+### 2.4 LGPD
+`src/lib/lgpd.functions.ts`:
+- `exportPatientData({ patientId })` → JSON com paciente + atendimentos + consentimentos (admin da clínica)
+- `anonymizePatient({ patientId })` → substitui nome/CPF/responsáveis por hash, mantém atendimentos para contabilidade (admin)
+- `recordConsent({ kind })` → insert em `consents`
 
-- **Login** (`/login`): card centralizado, logo teal, mesmos campos. Adiciona botão "Entrar com Google" (ver Parte 2).
-- **Dashboard** (`/_app/dashboard`): 4 KPI cards 140px (Total faturado, Pendentes, CPF Inválido, Emitidos), card grande "Últimos atendimentos" com filtros já existentes (ano/mês/dia) reestilizados, tabela com novos badges, estado vazio centralizado com ícone.
-- **Pacientes** (`/_app/pacientes`): header + barra de busca + botão "Novo paciente", tabela moderna, paginação/ações inline mantidas.
-- **Paciente detalhe** (`/_app/pacientes/$id`): botão voltar + nome em destaque + subtítulo, card "Dados Cadastrais" + botão Editar, card "Histórico de Atendimentos" com tabela e botão "Novo atendimento" (reaproveita dialog existente).
-- **Equipe** (`/_app/equipe`): card com tabela de membros (select de papel mantido).
-- **Master Admin** (`/master-admin`): KPI cards + tabela de clínicas com novo visual; dialog "Nova clínica" simplificado (ver Parte 2 — sem campo de senha).
-- **Bloqueio** (`/bloqueio`): card centralizado com tom de alerta.
+## Parte 3 — Segurança de login
+Via `supabase--configure_auth`:
+- `password_min_length: 8`, `password_required_characters` forte
+- `password_hibp_enabled: true` (leaked password check)
+- `email_confirm: true` (validação de e-mail no signup; convite continua funcionando)
+- Rate limit de tentativas (config padrão Supabase já aplica; documentar)
+- **Recuperação de senha**: adicionar link "Esqueci minha senha" em `/login` → `supabase.auth.resetPasswordForEmail` → reutiliza `/aceitar-convite` para definir nova senha
+- **2FA**: deixar estrutura pronta documentada (não habilitar TOTP agora — só preparar)
 
-Nenhuma string visível é alterada. Nenhuma rota é adicionada/removida (apenas a rota pública `/aceitar-convite` da Parte 2, que é nova funcionalidade pedida pelo usuário).
+## Parte 4 — Monitoramento
+- `src/lib/error-capture.ts` já existe — estender para enviar erros server-side para `audit_logs` com `action='error'`
+- Server fn `logClientError({ message, stack, url })` chamada do `__root.tsx` em `window.onerror` / `unhandledrejection`
+- View admin: nova seção em `/master-admin` listando últimos `audit_logs` com `action='error'` (super_admin only)
 
----
+## Parte 5 — Página do paciente (ajustes mínimos)
+A página `/pacientes/:id` já existe. Adições:
+- Botão **"Novo Atendimento"** no card de histórico → abre modal (Data, Valor, Forma de pagamento, Status, Observações) → chama `createAttendance` → invalida query, sem reload
+- Botão **"Editar"** no card de dados cadastrais → modal com `updatePatient`
+- Coluna **Ações** na tabela: Visualizar, Editar, Excluir (com `AlertDialog` de confirmação, soft delete)
+- Badges de status já existem; manter cores atuais (verde/amarelo/vermelho)
+- Campo `observacoes` em `attendances` — **NÃO existe na tabela hoje**. Adicionar `observacoes text NULL` na migration da Parte 1
 
-## Parte 2 — Novo fluxo Super Admin (convite por e-mail + Google)
+## Parte 6 — Cache (React Query)
+Já configurado. Padronizar nas queries novas:
+- `staleTime: 30_000`
+- `refetchInterval: 60_000` para dashboard e listas
+- `invalidateQueries` após cada mutação
 
-### Visão
+## Arquivos
+**Migration nova:**
+- `supabase/migrations/<ts>_hardening.sql` (soft delete, audit_logs, consents, índices, RPC dashboard, observacoes)
 
-Em vez de o Super Admin digitar a senha do admin da clínica, ele cadastra apenas **Nome da clínica + E-mail do admin + Vencimento + Status**. O sistema:
+**Server fns novos:**
+- `src/lib/audit.functions.ts`
+- `src/lib/lgpd.functions.ts`
+- `src/lib/dashboard.functions.ts`
 
-1. Cria a clínica.
-2. Cria o usuário no Auth via `inviteUserByEmail` (admin API), passando `redirectTo` para `/aceitar-convite`. Isso envia um e-mail com link único e seguro (token gerenciado pelo Supabase Auth).
-3. No primeiro acesso, o admin define a senha em `/aceitar-convite`. Daí em diante pode entrar com **e-mail/senha** OU **Google** (mesmo e-mail → mesma conta, pois o e-mail já está confirmado pelo convite).
+**Server fns editados:**
+- `src/lib/patients.functions.ts` (soft delete + audit + filtro deleted_at)
+- `src/lib/attendances.functions.ts` (soft delete + audit + observacoes)
+- `src/lib/clinics.functions.ts` (audit)
+- `src/lib/session.functions.ts` (audit login)
 
-Vantagens vs. estado atual: Super Admin nunca conhece/digita senha; token é de uso único e expira; sem necessidade de comunicar credenciais por canais inseguros.
+**UI:**
+- `src/routes/_app/pacientes.$id.tsx` (modal novo atendimento, editar dados, ações com confirmação)
+- `src/routes/_app/dashboard.tsx` (trocar para `getDashboardSummary`)
+- `src/routes/login.tsx` (link "Esqueci minha senha")
+- `src/routes/master-admin.tsx` (visualização de audit_logs de erro)
+- Novos componentes: `src/components/new-attendance-dialog.tsx`, `src/components/edit-patient-dialog.tsx`, `src/components/confirm-delete-dialog.tsx`
 
-### Mudanças de servidor (sem alterar banco/RLS)
+## Não escopo (fora deste plano)
+- 2FA TOTP ativo (só preparação)
+- Renomear `contador`/`usuario` para `FUNCIONARIO`
+- Backups automáticos (já são responsabilidade da Lovable Cloud — retenção 7-30 dias dependendo do plano)
+- Migrar pacientes existentes para anonimização
 
-`src/lib/clinics.functions.ts`:
-- `createClinicWithAdmin`: remover `adminPassword` do `inputValidator`. Trocar `supabaseAdmin.auth.admin.createUser({ email, password, email_confirm: true })` por:
-  ```ts
-  supabaseAdmin.auth.admin.inviteUserByEmail(adminEmail, {
-    data: { role: "admin", clinic_id: clinic.id },
-    redirectTo: `${process.env.APP_PUBLIC_URL ?? "https://patronus-flow.lovable.app"}/aceitar-convite`,
-  })
-  ```
-  (O trigger `handle_new_user` já lê `raw_user_meta_data.role` e `clinic_id`, então o profile é criado corretamente.)
-- Nova função `resendClinicAdminInvite({ clinicId })` (super-admin only) para reenviar o convite caso o e-mail expire — usa o mesmo `inviteUserByEmail`.
+## Ordem de execução
+1. Migration (Parte 1)
+2. Configuração de auth (Parte 3 — `configure_auth`)
+3. Server fns de audit + soft delete + dashboard agregado + LGPD
+4. UI: modais da página de paciente, recuperação de senha, visualização de logs
+5. Testes manuais: criar/editar/excluir paciente e atendimento conferindo audit_logs e RLS cruzada entre clínicas
 
-### Mudanças de UI
-
-- `NewClinicDialog` em `src/routes/master-admin.tsx`: remover campo "Senha"; manter Nome, E-mail, Vencimento, Status. Toast de sucesso: "Convite enviado para {email}".
-- Adicionar ação "Reenviar convite" na linha da clínica (visível apenas quando há admin pendente — heurística simples: admin existe). Reaproveita `InlineAction`.
-
-### Nova rota pública `/aceitar-convite`
-
-`src/routes/aceitar-convite.tsx`:
-- Página pública (não passa por `_authenticated`).
-- Lê hash do link (`access_token`/`refresh_token` ou `type=invite`) que o Supabase coloca — `supabase-js` processa automaticamente.
-- Mostra formulário "Definir senha" + "Confirmar senha" → `supabase.auth.updateUser({ password })`.
-- Mostra também botão "Continuar com Google" (mesmo e-mail vincula automaticamente quando confirmado).
-- Após sucesso, redireciona para `/dashboard`.
-
-### Login com Google (tela `/login` e `/aceitar-convite`)
-
-- Botão "Entrar com Google" usando o broker gerenciado:
-  ```ts
-  import { lovable } from "@/integrations/lovable";
-  await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
-  ```
-- No mesmo turno, habilitar provider Google via `supabase--configure_social_auth({ providers: ["google"] })`. **E-mail/senha permanece habilitado** (não desabilitar).
-
-### Restrição de auto-cadastro
-
-Manter `disable_signup: true` para garantir que apenas convites criem contas. (O `inviteUserByEmail` funciona mesmo com signup desabilitado pois usa a admin API.)
-
----
-
-## Detalhes técnicos
-
-**Arquivos a editar:**
-- `src/styles.css` — tokens da nova paleta + Inter + sombra
-- `src/routes/__root.tsx` — `<link>` Inter
-- `src/components/ui/{button,card,input,table,badge,select,textarea}.tsx` — radius/cores/shadow
-- `src/routes/_app.tsx` — sidebar 280px, rodapé com perfil, header com slot
-- `src/routes/_app/{dashboard,pacientes,pacientes.$id,equipe}.tsx` — aplicar novo layout (sem mudar lógica)
-- `src/routes/{login,master-admin,bloqueio}.tsx` — novo visual
-- `src/lib/clinics.functions.ts` — remover senha, usar `inviteUserByEmail`, adicionar `resendClinicAdminInvite`
-- `src/routes/aceitar-convite.tsx` — **novo** (definir senha após convite)
-
-**Arquivos NÃO tocados:** `client.ts`, `client.server.ts`, `auth-middleware.ts`, `auth-attacher.ts`, `types.ts`, migrations, RLS, `attendances.functions.ts`, `patients.functions.ts`, `team.functions.ts`, `session.functions.ts`.
-
-**Banco:** sem migrations. O trigger `handle_new_user` já popula `profiles` a partir de `raw_user_meta_data` enviado pelo `inviteUserByEmail`.
-
-**E-mails de convite:** usam o sistema padrão do Supabase Auth (template "Invite user"). Não precisa configurar domínio de e-mail customizado para isso funcionar — opcional como passo futuro.
-
-**Configuração de auth necessária após implementar:**
-- Habilitar Google provider (chamada automática).
-- `disable_signup: true` permanece (já está).
-- `auto_confirm_email` permanece como está.
+Após aprovação, executo tudo nessa ordem.
