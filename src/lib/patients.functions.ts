@@ -84,6 +84,10 @@ export const createPatient = createServerFn({ method: "POST" })
       if (error.code === "23505") throw new Error("CPF já cadastrado para outro paciente nesta clínica");
       throw new Error(error.message);
     }
+    await logAuditInternal(supabase, {
+      action: "patient.create", entity: "patient", recordId: row.id,
+      metadata: { name: row.name },
+    });
     return row;
   });
 
