@@ -7,6 +7,7 @@ import {
   requireClinicProfile,
   type AppRole,
 } from "@/lib/auth-guards";
+import { logAuditInternal } from "@/lib/audit.functions";
 
 export const ATTENDANCE_STATUSES = [
   "Pendente",
@@ -35,19 +36,6 @@ export const INVOICE_FOR_LABEL: Record<InvoiceFor, string> = {
   mother: "Mãe",
 };
 
-const statusEnum = z.enum(ATTENDANCE_STATUSES);
-const invoiceForEnum = z.enum(INVOICE_FOR_VALUES);
-
-/**
- * Transições de status permitidas por papel.
- * Contador:
- *   Pendente     -> Emitido, CPF Inválido
- *   CPF Inválido -> (nenhuma)
- *   Emitido      -> Pendente (Reabrir), CPF Inválido
- * Admin:
- *   CPF Inválido -> Pendente (Corrigir)
- *   demais       -> (nenhuma)
- */
 export function allowedTransitions(
   role: AppRole,
   current: AttendanceStatus,
@@ -89,8 +77,9 @@ const attInput = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   value: z.number().positive().max(1_000_000),
   payment_method: z.enum(PAYMENT_METHODS).nullable().optional(),
-  status: statusEnum.default("Pendente"),
-  invoice_for: invoiceForEnum.default("patient"),
+  status: z.enum(ATTENDANCE_STATUSES).default("Pendente"),
+  invoice_for: z.enum(INVOICE_FOR_VALUES).default("patient"),
+  observacoes: z.string().trim().max(2000).nullable().optional(),
 });
 
 export const createAttendance = createServerFn({ method: "POST" })
@@ -106,13 +95,40 @@ export const createAttendance = createServerFn({ method: "POST" })
       .select()
       .single();
     if (error) throw new Error(error.message);
+    await logAuditInternal(supabase, {
+      action: "attendance.create",
+      entity: "attendance",
+      recordId: row.id,
+      metadata: { patient_id: data.patient_id, value: data.value },
+    });
     return row;
+  });
+
+export const updateAttendance = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z.object({ id: z.string().uuid() }).merge(attInput.partial()).parse(input),
+  )
+  .handler(async ({ context, data }) => {
+    const { supabase, userId } = context;
+    const prof = await requireClinicProfile(supabase, userId);
+    assertAdminRole(prof.role, "Apenas Admin pode editar atendimentos");
+    const { id, ...patch } = data;
+    const { error } = await supabase.from("attendances").update(patch).eq("id", id);
+    if (error) throw new Error(error.message);
+    await logAuditInternal(supabase, {
+      action: "attendance.update",
+      entity: "attendance",
+      recordId: id,
+      metadata: patch as Record<string, unknown>,
+    });
+    return { ok: true };
   });
 
 export const updateAttendanceStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
-    z.object({ id: z.string().uuid(), status: statusEnum }).parse(input),
+    z.object({ id: z.string().uuid(), status: z.enum(ATTENDANCE_STATUSES) }).parse(input),
   )
   .handler(async ({ context, data }) => {
     const { supabase, userId } = context;
@@ -127,10 +143,7 @@ export const updateAttendanceStatus = createServerFn({ method: "POST" })
     if (readErr) throw new Error(readErr.message);
     if (!current) throw new Error("Atendimento não encontrado");
 
-    const allowed = allowedTransitions(
-      prof.role,
-      current.status as AttendanceStatus,
-    );
+    const allowed = allowedTransitions(prof.role, current.status as AttendanceStatus);
     if (!allowed.includes(data.status)) {
       throw new Error("Transição de status não permitida para o seu papel");
     }
@@ -140,6 +153,12 @@ export const updateAttendanceStatus = createServerFn({ method: "POST" })
       .update({ status: data.status })
       .eq("id", data.id);
     if (error) throw new Error(error.message);
+    await logAuditInternal(supabase, {
+      action: "attendance.status",
+      entity: "attendance",
+      recordId: data.id,
+      metadata: { from: current.status, to: data.status },
+    });
     return { ok: true };
   });
 
@@ -152,8 +171,13 @@ export const deleteAttendance = createServerFn({ method: "POST" })
     assertAdminRole(prof.role, "Apenas Admin pode remover atendimentos");
     const { error } = await supabase
       .from("attendances")
-      .delete()
+      .update({ deleted_at: new Date().toISOString() })
       .eq("id", data.id);
     if (error) throw new Error(error.message);
+    await logAuditInternal(supabase, {
+      action: "attendance.delete",
+      entity: "attendance",
+      recordId: data.id,
+    });
     return { ok: true };
   });

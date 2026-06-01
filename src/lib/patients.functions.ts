@@ -5,6 +5,7 @@ import {
   assertAdminRole,
   requireClinicProfile,
 } from "@/lib/auth-guards";
+import { logAuditInternal } from "@/lib/audit.functions";
 
 export const listPatients = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
