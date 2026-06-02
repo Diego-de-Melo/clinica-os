@@ -37,7 +37,8 @@ function LoginPage() {
       toast.success("Login efetuado");
       navigate({ to: getPostLoginPath(session) });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Falha ao entrar");
+      console.error("[auth] login failed", err);
+      toast.error("Falha ao entrar");
     } finally {
       setLoading(false);
     }
@@ -54,7 +55,8 @@ function LoginPage() {
       const session = await sessionFn();
       navigate({ to: getPostLoginPath(session) });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Falha ao entrar com Google");
+      console.error("[auth] google login failed", err);
+      toast.error("Falha ao entrar com Google");
     } finally {
       setGoogleLoading(false);
     }
@@ -95,7 +97,10 @@ function LoginPage() {
                 const { error } = await supabase.auth.resetPasswordForEmail(email, {
                   redirectTo: `${window.location.origin}/aceitar-convite`,
                 });
-                if (error) toast.error(error.message);
+                if (error) {
+                  console.error("[auth] password reset failed", error);
+                  toast.error("Não foi possível enviar o link de recuperação");
+                }
                 else toast.success("Enviamos um link de recuperação para o seu email");
               }}
             >
