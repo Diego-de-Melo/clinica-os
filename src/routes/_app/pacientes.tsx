@@ -47,7 +47,6 @@ function PacientesPage() {
   const listFn = useServerFn(listPatients);
   const delFn = useServerFn(deletePatient);
   const [search, setSearch] = useState("");
-  const [editing, setEditing] = useState<Patient | null>(null);
 
   const { data: rows, isLoading } = useQuery({
     queryKey: ["patients", search],
@@ -102,19 +101,9 @@ function PacientesPage() {
             {((rows as Patient[] | undefined) ?? []).map((p) => (
               <TableRow key={p.id}>
                 <TableCell className="font-medium">
-                  {isAdmin ? (
-                    <button
-                      type="button"
-                      className="text-left hover:underline"
-                      onClick={() => setEditing(p)}
-                    >
-                      {p.name}
-                    </button>
-                  ) : (
-                    <Link to="/pacientes/$id" params={{ id: p.id }} className="hover:underline">
-                      {p.name}
-                    </Link>
-                  )}
+                  <Link to="/pacientes/$id" params={{ id: p.id }} className="hover:underline">
+                    {p.name}
+                  </Link>
                 </TableCell>
                 <TableCell>{p.cpf ?? "—"}</TableCell>
                 <TableCell>{p.father_name ?? "—"}</TableCell>
@@ -141,17 +130,6 @@ function PacientesPage() {
           </TableBody>
         </Table>
       </div>
-
-      {editing && (
-        <EditPatientDialog
-          patient={editing}
-          onClose={() => setEditing(null)}
-          onSaved={() => {
-            setEditing(null);
-            qc.invalidateQueries({ queryKey: ["patients"] });
-          }}
-        />
-      )}
     </div>
   );
 }
