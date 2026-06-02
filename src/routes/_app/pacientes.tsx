@@ -216,7 +216,8 @@ function NewPatientDialog({ onCreated }: { onCreated: () => void }) {
       setForm(EMPTY_FORM);
       onCreated();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro");
+      console.error("[patients] operation failed", err);
+      toast.error("Erro");
     } finally {
       setLoading(false);
     }
@@ -272,13 +273,15 @@ function ImportCsvDialog({ onDone }: { onDone: () => void }) {
           setOpen(false);
           onDone();
         } catch (err) {
-          toast.error(err instanceof Error ? err.message : "Erro");
+          console.error("[patients] operation failed", err);
+      toast.error("Erro");
         } finally {
           setLoading(false);
         }
       },
       error: (err) => {
-        toast.error("Erro ao ler CSV: " + err.message);
+        console.error("[patients] csv read failed", err);
+        toast.error("Erro ao ler CSV");
         setLoading(false);
       },
     });

@@ -362,7 +362,8 @@ function NewAttendanceDialog({ onCreated }: { onCreated: () => void }) {
       setPatientId(""); setValue(""); setMethod(""); setInvoiceFor("patient");
       onCreated();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro");
+      console.error("[attendance] create failed", err);
+      toast.error("Erro");
     } finally {
       setLoading(false);
     }

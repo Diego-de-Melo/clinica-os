@@ -153,7 +153,8 @@ function NewMemberDialog({ onDone }: { onDone: () => void }) {
       setEmail(""); setPassword(""); setRole("usuario");
       onDone();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro");
+      console.error("[team] create failed", err);
+      toast.error("Erro");
     } finally {
       setLoading(false);
     }

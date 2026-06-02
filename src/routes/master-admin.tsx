@@ -451,7 +451,8 @@ function NewClinicDialog({ onDone }: { onDone: () => void }) {
       setOpen(false); setName(""); setEmail("");
       onDone();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro");
+      console.error("[clinic] create failed", err);
+      toast.error("Erro");
     } finally {
       setLoading(false);
     }
