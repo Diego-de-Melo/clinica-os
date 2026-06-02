@@ -240,49 +240,6 @@ function NewPatientDialog({ onCreated }: { onCreated: () => void }) {
   );
 }
 
-function EditPatientDialog({ patient, onClose, onSaved }: {
-  patient: Patient; onClose: () => void; onSaved: () => void;
-}) {
-  const updateFn = useServerFn(updatePatient);
-  const [form, setForm] = useState<PatientForm>({
-    name: patient.name ?? "",
-    cpf: patient.cpf ?? "",
-    father_name: patient.father_name ?? "",
-    father_cpf: patient.father_cpf ?? "",
-    mother_name: patient.mother_name ?? "",
-    mother_cpf: patient.mother_cpf ?? "",
-  });
-  const [loading, setLoading] = useState(false);
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      await updateFn({ data: { id: patient.id, ...toPayload(form) } });
-      toast.success("Paciente atualizado");
-      onSaved();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent>
-        <DialogHeader><DialogTitle>Editar paciente</DialogTitle></DialogHeader>
-        <form onSubmit={submit} className="space-y-4">
-          <PatientFields form={form} setForm={setForm} />
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
-            <Button type="submit" disabled={loading}>{loading && <Loader2 className="h-4 w-4 animate-spin" />} Salvar</Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 function ImportCsvDialog({ onDone }: { onDone: () => void }) {
   const [open, setOpen] = useState(false);
