@@ -41,6 +41,7 @@ const STATUS_STYLES: Record<AttendanceStatus, string> = {
   "CPF Inválido": "bg-destructive/15 text-destructive",
   "Corrigido": "bg-amber-100 text-amber-800",
   "Emitido": "bg-success/15 text-success",
+  "Cancelado": "bg-destructive/15 text-destructive",
 };
 
 const TRANSITION_LABEL: Record<AttendanceStatus, string> = {
@@ -48,6 +49,7 @@ const TRANSITION_LABEL: Record<AttendanceStatus, string> = {
   "CPF Inválido": "CPF inválido",
   "Corrigido": "Corrigir",
   "Emitido": "Emitir",
+  "Cancelado": "Cancelar",
 };
 
 const MONTHS = [

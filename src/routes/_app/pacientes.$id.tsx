@@ -227,6 +227,7 @@ function Field({ label, value }: { label: string; value: string | null | undefin
 function StatusBadge({ status }: { status: string }) {
   if (status === "Emitido") return <Badge variant="success">Emitido</Badge>;
   if (status === "CPF Inválido") return <Badge variant="destructive">CPF Inválido</Badge>;
+  if (status === "Cancelado") return <Badge variant="destructive">Cancelado</Badge>;
   if (status === "Pendente") return <Badge variant="warning">Pendente</Badge>;
   return <Badge variant="secondary">{status}</Badge>;
 }

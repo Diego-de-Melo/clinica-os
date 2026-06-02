@@ -14,6 +14,7 @@ export const ATTENDANCE_STATUSES = [
   "CPF Inválido",
   "Corrigido",
   "Emitido",
+  "Cancelado",
 ] as const;
 export type AttendanceStatus = (typeof ATTENDANCE_STATUSES)[number];
 
@@ -57,6 +58,7 @@ export const STATUS_ACTION_LABEL: Record<AttendanceStatus, string> = {
   "CPF Inválido": "CPF inválido",
   "Corrigido": "Corrigir",
   "Emitido": "Emitir",
+  "Cancelado": "Cancelar",
 };
 
 export const listAttendances = createServerFn({ method: "GET" })

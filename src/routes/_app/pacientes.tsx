@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import Papa from "papaparse";
 import {
-  listPatients, createPatient, updatePatient, deletePatient, bulkCreatePatients,
+  listPatients, createPatient, deletePatient, bulkCreatePatients,
 } from "@/lib/patients.functions";
 import { useSession } from "@/hooks/use-session";
 import { Button } from "@/components/ui/button";
@@ -47,7 +47,6 @@ function PacientesPage() {
   const listFn = useServerFn(listPatients);
   const delFn = useServerFn(deletePatient);
   const [search, setSearch] = useState("");
-  const [editing, setEditing] = useState<Patient | null>(null);
 
   const { data: rows, isLoading } = useQuery({
     queryKey: ["patients", search],
@@ -102,19 +101,9 @@ function PacientesPage() {
             {((rows as Patient[] | undefined) ?? []).map((p) => (
               <TableRow key={p.id}>
                 <TableCell className="font-medium">
-                  {isAdmin ? (
-                    <button
-                      type="button"
-                      className="text-left hover:underline"
-                      onClick={() => setEditing(p)}
-                    >
-                      {p.name}
-                    </button>
-                  ) : (
-                    <Link to="/pacientes/$id" params={{ id: p.id }} className="hover:underline">
-                      {p.name}
-                    </Link>
-                  )}
+                  <Link to="/pacientes/$id" params={{ id: p.id }} className="hover:underline">
+                    {p.name}
+                  </Link>
                 </TableCell>
                 <TableCell>{p.cpf ?? "—"}</TableCell>
                 <TableCell>{p.father_name ?? "—"}</TableCell>
@@ -141,17 +130,6 @@ function PacientesPage() {
           </TableBody>
         </Table>
       </div>
-
-      {editing && (
-        <EditPatientDialog
-          patient={editing}
-          onClose={() => setEditing(null)}
-          onSaved={() => {
-            setEditing(null);
-            qc.invalidateQueries({ queryKey: ["patients"] });
-          }}
-        />
-      )}
     </div>
   );
 }
@@ -262,49 +240,6 @@ function NewPatientDialog({ onCreated }: { onCreated: () => void }) {
   );
 }
 
-function EditPatientDialog({ patient, onClose, onSaved }: {
-  patient: Patient; onClose: () => void; onSaved: () => void;
-}) {
-  const updateFn = useServerFn(updatePatient);
-  const [form, setForm] = useState<PatientForm>({
-    name: patient.name ?? "",
-    cpf: patient.cpf ?? "",
-    father_name: patient.father_name ?? "",
-    father_cpf: patient.father_cpf ?? "",
-    mother_name: patient.mother_name ?? "",
-    mother_cpf: patient.mother_cpf ?? "",
-  });
-  const [loading, setLoading] = useState(false);
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      await updateFn({ data: { id: patient.id, ...toPayload(form) } });
-      toast.success("Paciente atualizado");
-      onSaved();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent>
-        <DialogHeader><DialogTitle>Editar paciente</DialogTitle></DialogHeader>
-        <form onSubmit={submit} className="space-y-4">
-          <PatientFields form={form} setForm={setForm} />
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
-            <Button type="submit" disabled={loading}>{loading && <Loader2 className="h-4 w-4 animate-spin" />} Salvar</Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 function ImportCsvDialog({ onDone }: { onDone: () => void }) {
   const [open, setOpen] = useState(false);
