@@ -14,6 +14,7 @@ export const ATTENDANCE_STATUSES = [
   "CPF Inválido",
   "Corrigido",
   "Emitido",
+  "Cancelado",
 ] as const;
 export type AttendanceStatus = (typeof ATTENDANCE_STATUSES)[number];
 
