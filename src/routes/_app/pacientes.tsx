@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import Papa from "papaparse";
 import {
-  listPatients, createPatient, updatePatient, deletePatient, bulkCreatePatients,
+  listPatients, createPatient, deletePatient, bulkCreatePatients,
 } from "@/lib/patients.functions";
 import { useSession } from "@/hooks/use-session";
 import { Button } from "@/components/ui/button";
