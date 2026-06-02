@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { throwDatabaseError } from "@/lib/safe-errors";
 
 export type DashboardSummary = {
   total_patients: number;
@@ -25,7 +26,7 @@ export const getDashboardSummary = createServerFn({ method: "GET" })
       _from: data.from ?? undefined,
       _to: data.to ?? undefined,
     });
-    if (error) throw new Error(error.message);
+    if (error) throwDatabaseError(error);
     return (summary as unknown as DashboardSummary) ?? {
       total_patients: 0, total_attendances: 0, revenue: 0, by_status: {},
     };

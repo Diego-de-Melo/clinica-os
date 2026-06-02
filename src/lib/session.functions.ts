@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { normalizeAppRole, type AppRole } from "@/lib/auth-guards";
+import { throwDatabaseError } from "@/lib/safe-errors";
 
 export type { AppRole };
 
@@ -27,7 +28,7 @@ export const getSessionContext = createServerFn({ method: "GET" })
       .eq("id", userId)
       .maybeSingle();
 
-    if (error) throw new Error(error.message);
+    if (error) throwDatabaseError(error);
     if (!profile) {
       return {
         userId, email, role: "usuario",

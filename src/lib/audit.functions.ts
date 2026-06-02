@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { throwDatabaseError } from "@/lib/safe-errors";
 
 const inputSchema = z.object({
   action: z.string().min(1).max(80),
@@ -89,6 +90,6 @@ export const listAuditLogs = createServerFn({ method: "GET" })
       .limit(data.limit);
     if (data.action) q = q.eq("action", data.action);
     const { data: rows, error } = await q;
-    if (error) throw new Error(error.message);
+    if (error) throwDatabaseError(error);
     return rows ?? [];
   });
