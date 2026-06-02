@@ -2,6 +2,7 @@ import { createServerFn, createMiddleware } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { throwDatabaseError, throwServiceError } from "@/lib/safe-errors";
 
 // Guard: only super admin can run these
 const requireSuperAdmin = createMiddleware({ type: "function" })
@@ -13,7 +14,7 @@ const requireSuperAdmin = createMiddleware({ type: "function" })
       .select("role")
       .eq("id", userId)
       .maybeSingle();
-    if (error) throw new Error(error.message);
+    if (error) throwDatabaseError(error);
     if (data?.role !== "super_admin") {
       throw new Error("Apenas Super Admin pode executar esta ação.");
     }
@@ -27,7 +28,7 @@ export const listClinics = createServerFn({ method: "GET" })
       .from("clinics")
       .select("*")
       .order("created_at", { ascending: false });
-    if (error) throw new Error(error.message);
+    if (error) throwDatabaseError(error);
 
     // also fetch counts and admin emails
     const ids = (data ?? []).map((c) => c.id);
@@ -72,7 +73,7 @@ export const createClinicWithAdmin = createServerFn({ method: "POST" })
       })
       .select()
       .single();
-    if (cErr) throw new Error(cErr.message);
+    if (cErr) throwDatabaseError(cErr);
 
     const { data: invited, error: uErr } =
       await supabaseAdmin.auth.admin.inviteUserByEmail(data.adminEmail, {
@@ -81,7 +82,7 @@ export const createClinicWithAdmin = createServerFn({ method: "POST" })
       });
     if (uErr) {
       await supabaseAdmin.from("clinics").delete().eq("id", clinic.id);
-      throw new Error(uErr.message);
+      throwServiceError(uErr, "Não foi possível enviar o convite.");
     }
 
     return { clinic, userId: invited.user?.id };
@@ -102,7 +103,7 @@ export const resendClinicAdminInvite = createServerFn({ method: "POST" })
       .from("profiles")
       .select("email, role")
       .eq("clinic_id", data.clinicId);
-    if (pErr) throw new Error(pErr.message);
+    if (pErr) throwDatabaseError(pErr);
     const admin = (profs ?? []).find((p) => p.role === "admin");
     if (!admin?.email) throw new Error("Nenhum admin encontrado para esta clínica.");
 
@@ -110,7 +111,7 @@ export const resendClinicAdminInvite = createServerFn({ method: "POST" })
       data: { role: "admin", clinic_id: data.clinicId },
       redirectTo: data.redirectTo,
     });
-    if (error) throw new Error(error.message);
+    if (error) throwDatabaseError(error);
     return { ok: true, email: admin.email };
   });
 
@@ -140,7 +141,7 @@ export const updateClinic = createServerFn({ method: "POST" })
       .from("clinics")
       .update(patch)
       .eq("id", data.id);
-    if (error) throw new Error(error.message);
+    if (error) throwDatabaseError(error);
     return { ok: true };
   });
 
@@ -160,6 +161,6 @@ export const deleteClinic = createServerFn({ method: "POST" })
       .from("clinics")
       .delete()
       .eq("id", data.id);
-    if (error) throw new Error(error.message);
+    if (error) throwDatabaseError(error);
     return { ok: true };
   });

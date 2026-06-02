@@ -6,6 +6,7 @@ import {
   requireClinicProfile,
 } from "@/lib/auth-guards";
 import { logAuditInternal } from "@/lib/audit.functions";
+import { throwDatabaseError } from "@/lib/safe-errors";
 
 export const listPatients = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -22,7 +23,7 @@ export const listPatients = createServerFn({ method: "GET" })
       q = q.ilike("name", `%${data.search}%`);
     }
     const { data: rows, error } = await q;
-    if (error) throw new Error(error.message);
+    if (error) throwDatabaseError(error);
     return rows ?? [];
   });
 
@@ -36,7 +37,7 @@ export const getPatient = createServerFn({ method: "GET" })
       .select("*")
       .eq("id", data.id)
       .maybeSingle();
-    if (error) throw new Error(error.message);
+    if (error) throwDatabaseError(error);
     if (!patient) throw new Error("Paciente não encontrado");
 
     const { data: attendances } = await supabase
@@ -82,7 +83,7 @@ export const createPatient = createServerFn({ method: "POST" })
       .single();
     if (error) {
       if (error.code === "23505") throw new Error("CPF já cadastrado para outro paciente nesta clínica");
-      throw new Error(error.message);
+      throwDatabaseError(error);
     }
     await logAuditInternal(supabase, {
       action: "patient.create", entity: "patient", recordId: row.id,
@@ -105,7 +106,7 @@ export const updatePatient = createServerFn({ method: "POST" })
       .from("patients")
       .update(rest)
       .eq("id", id);
-    if (error) throw new Error(error.message);
+    if (error) throwDatabaseError(error);
     await logAuditInternal(supabase, {
       action: "patient.update", entity: "patient", recordId: id,
       metadata: rest as Record<string, unknown>,
@@ -124,7 +125,7 @@ export const deletePatient = createServerFn({ method: "POST" })
       .from("patients")
       .update({ deleted_at: new Date().toISOString() })
       .eq("id", data.id);
-    if (error) throw new Error(error.message);
+    if (error) throwDatabaseError(error);
     await logAuditInternal(supabase, {
       action: "patient.delete", entity: "patient", recordId: data.id,
     });
@@ -149,7 +150,7 @@ export const bulkCreatePatients = createServerFn({ method: "POST" })
       .insert(rows, { count: "exact" });
     if (error) {
       if (error.code === "23505") throw new Error("Importação contém pacientes duplicados (nome ou CPF já existente)");
-      throw new Error(error.message);
+      throwDatabaseError(error);
     }
     return { ok: true, inserted: count ?? rows.length };
   });

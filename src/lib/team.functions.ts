@@ -2,6 +2,7 @@ import { createServerFn, createMiddleware } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { throwDatabaseError, throwServiceError } from "@/lib/safe-errors";
 
 const requireClinicAdmin = createMiddleware({ type: "function" })
   .middleware([requireSupabaseAuth])
@@ -12,7 +13,7 @@ const requireClinicAdmin = createMiddleware({ type: "function" })
       .select("role, clinic_id")
       .eq("id", userId)
       .maybeSingle();
-    if (error) throw new Error(error.message);
+    if (error) throwDatabaseError(error);
     if (!data) throw new Error("Perfil não encontrado");
     if (data.role !== "admin" && data.role !== "super_admin") {
       throw new Error("Apenas Admin pode gerenciar a equipe");
@@ -29,7 +30,7 @@ export const listTeam = createServerFn({ method: "GET" })
       .select("id, email, role, created_at")
       .eq("clinic_id", context.clinicId)
       .order("created_at", { ascending: false });
-    if (error) throw new Error(error.message);
+    if (error) throwDatabaseError(error);
     return data ?? [];
   });
 
@@ -52,7 +53,7 @@ export const createTeamMember = createServerFn({ method: "POST" })
       email_confirm: true,
       user_metadata: { role: data.role, clinic_id: context.clinicId },
     });
-    if (error) throw new Error(error.message);
+    if (error) throwDatabaseError(error);
     return { ok: true, userId: created.user?.id };
   });
 
@@ -79,7 +80,7 @@ export const updateTeamMemberRole = createServerFn({ method: "POST" })
       .from("profiles")
       .update({ role: data.role })
       .eq("id", data.id);
-    if (error) throw new Error(error.message);
+    if (error) throwDatabaseError(error);
     return { ok: true };
   });
 
@@ -96,7 +97,7 @@ export const deleteTeamMember = createServerFn({ method: "POST" })
       throw new Error("Membro não pertence à sua clínica");
     }
     const { error } = await supabaseAdmin.auth.admin.deleteUser(data.id);
-    if (error) throw new Error(error.message);
+    if (error) throwDatabaseError(error);
     return { ok: true };
   });
 

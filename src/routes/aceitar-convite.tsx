@@ -54,7 +54,8 @@ function AcceptInvitePage() {
       const session = await sessionFn();
       navigate({ to: getPostLoginPath(session) });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao definir senha");
+      console.error("[auth] password setup failed", err);
+      toast.error("Erro ao definir senha");
     } finally {
       setLoading(false);
     }
@@ -71,7 +72,8 @@ function AcceptInvitePage() {
       const session = await sessionFn();
       navigate({ to: getPostLoginPath(session) });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Falha com Google");
+      console.error("[auth] google invite failed", err);
+      toast.error("Falha com Google");
     } finally {
       setGoogleLoading(false);
     }

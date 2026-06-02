@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
+import { throwDatabaseError } from "@/lib/safe-errors";
 
 export type AppRole = "super_admin" | "admin" | "contador" | "usuario";
 
@@ -22,7 +23,7 @@ export async function requireClinicProfile(
     .eq("id", userId)
     .maybeSingle();
 
-  if (error) throw new Error(error.message);
+  if (error) throwDatabaseError(error);
   if (!prof?.clinic_id) throw new Error("Sem clínica associada");
 
   return {

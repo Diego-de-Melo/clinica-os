@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { assertAdminRole, requireClinicProfile } from "@/lib/auth-guards";
 import { logAuditInternal } from "@/lib/audit.functions";
+import { throwDatabaseError } from "@/lib/safe-errors";
 
 export const exportPatientData = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -17,7 +18,7 @@ export const exportPatientData = createServerFn({ method: "POST" })
       .select("*")
       .eq("id", data.patientId)
       .maybeSingle();
-    if (error) throw new Error(error.message);
+    if (error) throwDatabaseError(error);
     if (!patient) throw new Error("Paciente não encontrado");
 
     const { data: attendances } = await supabase
@@ -57,7 +58,7 @@ export const anonymizePatient = createServerFn({ method: "POST" })
         mother_name: null, mother_cpf: null,
       })
       .eq("id", data.patientId);
-    if (error) throw new Error(error.message);
+    if (error) throwDatabaseError(error);
 
     await logAuditInternal(supabase, {
       action: "lgpd.anonymize",
@@ -83,6 +84,6 @@ export const recordConsent = createServerFn({ method: "POST" })
     const { error } = await supabase
       .from("consents")
       .insert({ user_id: userId, clinic_id: prof?.clinic_id ?? null, kind: data.kind });
-    if (error) throw new Error(error.message);
+    if (error) throwDatabaseError(error);
     return { ok: true };
   });

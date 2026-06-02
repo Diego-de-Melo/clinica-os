@@ -8,6 +8,7 @@ import {
   type AppRole,
 } from "@/lib/auth-guards";
 import { logAuditInternal } from "@/lib/audit.functions";
+import { throwDatabaseError } from "@/lib/safe-errors";
 
 export const ATTENDANCE_STATUSES = [
   "Pendente",
@@ -70,7 +71,7 @@ export const listAttendances = createServerFn({ method: "GET" })
       .select("*, patient:patients(id,name,cpf,father_name,father_cpf,mother_name,mother_cpf)")
       .order("created_at", { ascending: false })
       .limit(500);
-    if (error) throw new Error(error.message);
+    if (error) throwDatabaseError(error);
     return data ?? [];
   });
 
@@ -96,7 +97,7 @@ export const createAttendance = createServerFn({ method: "POST" })
       .insert({ ...data, clinic_id: prof.clinic_id })
       .select()
       .single();
-    if (error) throw new Error(error.message);
+    if (error) throwDatabaseError(error);
     await logAuditInternal(supabase, {
       action: "attendance.create",
       entity: "attendance",
@@ -117,7 +118,7 @@ export const updateAttendance = createServerFn({ method: "POST" })
     assertAdminRole(prof.role, "Apenas Admin pode editar atendimentos");
     const { id, ...patch } = data;
     const { error } = await supabase.from("attendances").update(patch).eq("id", id);
-    if (error) throw new Error(error.message);
+    if (error) throwDatabaseError(error);
     await logAuditInternal(supabase, {
       action: "attendance.update",
       entity: "attendance",
@@ -142,7 +143,7 @@ export const updateAttendanceStatus = createServerFn({ method: "POST" })
       .select("status")
       .eq("id", data.id)
       .maybeSingle();
-    if (readErr) throw new Error(readErr.message);
+    if (readErr) throwDatabaseError(readErr);
     if (!current) throw new Error("Atendimento não encontrado");
 
     const allowed = allowedTransitions(prof.role, current.status as AttendanceStatus);
@@ -154,7 +155,7 @@ export const updateAttendanceStatus = createServerFn({ method: "POST" })
       .from("attendances")
       .update({ status: data.status })
       .eq("id", data.id);
-    if (error) throw new Error(error.message);
+    if (error) throwDatabaseError(error);
     await logAuditInternal(supabase, {
       action: "attendance.status",
       entity: "attendance",
@@ -175,7 +176,7 @@ export const deleteAttendance = createServerFn({ method: "POST" })
       .from("attendances")
       .update({ deleted_at: new Date().toISOString() })
       .eq("id", data.id);
-    if (error) throw new Error(error.message);
+    if (error) throwDatabaseError(error);
     await logAuditInternal(supabase, {
       action: "attendance.delete",
       entity: "attendance",
