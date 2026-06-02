@@ -58,6 +58,7 @@ export const STATUS_ACTION_LABEL: Record<AttendanceStatus, string> = {
   "CPF Inválido": "CPF inválido",
   "Corrigido": "Corrigir",
   "Emitido": "Emitir",
+  "Cancelado": "Cancelar",
 };
 
 export const listAttendances = createServerFn({ method: "GET" })
