@@ -1,46 +1,28 @@
-# Página de Detalhes do Paciente — ajustes
+## Problema
 
-A página `/pacientes/$id` já existe com cards de Dados Cadastrais e Histórico de Atendimentos, modais de novo/editar/visualizar/excluir, badges coloridas, soft delete e cache (staleTime 30s + refetch 60s + invalidate após mutação). Apenas dois ajustes são necessários para alinhar ao spec.
+Hoje existem dois arquivos no mesmo nível:
 
-## 1. Navegação a partir da lista (`src/routes/_app/pacientes.tsx`)
+- `src/routes/_app/pacientes.tsx` → tela com a lista
+- `src/routes/_app/pacientes.$id.tsx` → tela de detalhes
 
-Hoje, na tabela de Pacientes:
-- Não-admin: já navega para `/pacientes/$id` via `<Link>`.
-- Admin: clica no nome e abre modal `EditPatientDialog`.
+Pela convenção do TanStack Router, `pacientes.tsx` vira **rota pai** de `pacientes/$id`. Como `pacientes.tsx` renderiza a lista e **não** tem um `<Outlet />`, ao navegar para `/pacientes/<id>` o roteador casa a rota filha, mas não há onde renderizá-la — então a tela continua mostrando a lista de pacientes, sem o histórico nem o botão de editar.
 
-Trocar para que **todos os perfis** naveguem para `/pacientes/$id` ao clicar no nome. A edição continua disponível dentro da página de detalhes (botão "Editar" do Card 1, já implementado).
+Confirmado em `src/routeTree.gen.ts`: o tipo `AppPacientesRouteWithChildren` mostra que a lista está sendo tratada como layout.
 
-Mudanças:
-- Substituir o `<button>` condicional do nome por `<Link to="/pacientes/$id" params={{ id: p.id }}>` para todos.
-- Remover o state `editing`, o componente local `EditPatientDialog` desta rota e o bloco `{editing && …}`.
-- Manter `ImportCsvDialog`, `NewPatientDialog` e o botão "Remover" da `ActionCell` intactos.
+## Correção
 
-Card 1 fica com os campos atuais (Nome, CPF, Pai, CPF do pai, Mãe, CPF da mãe, Cadastro), conforme decidido.
+Transformar a lista numa rota **irmã** do detalhe, em vez de pai.
 
-## 2. Status "Cancelado" no atendimento
+1. Renomear `src/routes/_app/pacientes.tsx` → `src/routes/_app/pacientes.index.tsx`
+   - Conteúdo permanece idêntico (mesma `PacientesPage`, mesmo `head`, etc.).
+   - Apenas trocar `createFileRoute("/_app/pacientes")` por `createFileRoute("/_app/pacientes/")` (a `/` final é a convenção de index).
+2. Manter `src/routes/_app/pacientes.$id.tsx` inalterado.
+3. O `routeTree.gen.ts` é regenerado automaticamente pelo plugin — não editar.
 
-Adicionar `Cancelado` como status válido, mantendo os existentes (`Pendente`, `CPF Inválido`, `Corrigido`, `Emitido`).
+Depois disso:
+- `/pacientes` continua mostrando a listagem.
+- `/pacientes/<id>` mostra a página de detalhes completa (cards de dados, histórico, modais de novo/editar/excluir atendimento, editar paciente).
 
-### Migration
-```sql
--- Atualiza CHECK constraint de attendances.status (se existir) e
--- permite "Cancelado". Não há enum: status é text com CHECK.
-ALTER TABLE public.attendances DROP CONSTRAINT IF EXISTS attendances_status_check;
-ALTER TABLE public.attendances ADD CONSTRAINT attendances_status_check
-  CHECK (status IN ('Pendente','CPF Inválido','Corrigido','Emitido','Cancelado'));
-```
-(Verificar antes via `read_query` se a constraint existe com esse nome; ajustar nome se diferente.)
-
-### Código
-- `src/lib/attendances.functions.ts`: adicionar `"Cancelado"` em `ATTENDANCE_STATUSES`. Não alterar `allowedTransitions` (apenas admin define no formulário de criar/editar; transições por botão não mudam).
-- `src/routes/_app/pacientes.$id.tsx`: na `StatusBadge`, adicionar caso `Cancelado` → `<Badge variant="destructive">Cancelado</Badge>`.
-
-## Fora de escopo (decidido pelo usuário)
-- Não criar colunas novas em `patients` (telefone, email, endereço, etc.).
-- Não alterar layout global, textos atuais nem fluxo de outras telas.
-- Modais, soft delete, cache e responsividade já implementados — sem mexer.
-
-## Ordem
-1. Migration do CHECK de status.
-2. Editar `attendances.functions.ts` (adicionar `Cancelado`).
-3. Editar `pacientes.tsx` (Link para todos) e `pacientes.$id.tsx` (badge Cancelado).
+## Fora de escopo
+- Não alterar layout, textos, queries, RLS, migrações nem o conteúdo da página de detalhes (já estava certo).
+- Sidebar e link "Pacientes" continuam apontando para `/pacientes`.
