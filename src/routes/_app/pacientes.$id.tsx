@@ -96,14 +96,14 @@ function PatientDetail() {
           )}
         </div>
         <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-          <Field label="CPF" value={data.patient.cpf} />
+          <Field label="CPF" value={formatCPF(data.patient.cpf)} />
           <Field label="Cadastro" value={new Date(data.patient.created_at).toLocaleDateString("pt-BR")} />
           <div />
           <Field label="Pai" value={data.patient.father_name} />
-          <Field label="CPF do pai" value={data.patient.father_cpf} />
+          <Field label="CPF do pai" value={formatCPF(data.patient.father_cpf)} />
           <div />
           <Field label="Mãe" value={data.patient.mother_name} />
-          <Field label="CPF da mãe" value={data.patient.mother_cpf} />
+          <Field label="CPF da mãe" value={formatCPF(data.patient.mother_cpf)} />
         </div>
       </div>
 
