@@ -12,6 +12,7 @@ import {
 import { useSession } from "@/hooks/use-session";
 import { APP_NAME } from "@/lib/constants";
 import { ArrowLeft, Pencil, Plus, Trash2, Eye, Loader2 } from "lucide-react";
+import { formatCPF } from "@/lib/cpf";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
