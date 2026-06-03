@@ -149,7 +149,7 @@ function PatientDetail() {
                   <TableCell>{a.payment_method ?? "—"}</TableCell>
                   <TableCell>
                     <div>{inv ? INVOICE_FOR_LABEL[inv] : "—"}</div>
-                    {recipientCpf && <div className="text-xs text-muted-foreground">CPF: {recipientCpf}</div>}
+                    {recipientCpf && <div className="text-xs text-muted-foreground">CPF: {formatCPF(recipientCpf)}</div>}
                   </TableCell>
                   <TableCell>
                     <StatusBadge status={a.status} />
