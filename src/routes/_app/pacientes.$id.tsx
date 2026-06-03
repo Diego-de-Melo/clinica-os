@@ -243,11 +243,11 @@ function EditPatientDialog({
   const updFn = useServerFn(updatePatient);
   const [form, setForm] = useState({
     name: patient.name,
-    cpf: patient.cpf ?? "",
+    cpf: formatCPF(patient.cpf),
     father_name: patient.father_name ?? "",
-    father_cpf: patient.father_cpf ?? "",
+    father_cpf: formatCPF(patient.father_cpf),
     mother_name: patient.mother_name ?? "",
-    mother_cpf: patient.mother_cpf ?? "",
+    mother_cpf: formatCPF(patient.mother_cpf),
   });
   const mut = useMutation({
     mutationFn: () => updFn({
