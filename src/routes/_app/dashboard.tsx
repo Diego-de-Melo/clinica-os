@@ -244,7 +244,7 @@ function DashboardPage() {
                       <Link to="/pacientes/$id" params={{ id: patientId }} className="hover:underline">
                         <div>{r.patient?.name ?? "—"}</div>
                         <div className="text-xs text-muted-foreground font-normal">
-                          CPF: {r.patient?.cpf ?? "—"}
+                          CPF: {r.patient?.cpf ? formatCPF(r.patient.cpf) : "—"}
                         </div>
                       </Link>
                     ) : "—"}
