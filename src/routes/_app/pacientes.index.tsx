@@ -106,7 +106,7 @@ function PacientesPage() {
                     {p.name}
                   </Link>
                 </TableCell>
-                <TableCell>{p.cpf ?? "—"}</TableCell>
+                <TableCell>{p.cpf ? formatCPF(p.cpf) : "—"}</TableCell>
                 <TableCell>{p.father_name ?? "—"}</TableCell>
                 <TableCell>{p.mother_name ?? "—"}</TableCell>
                 <TableCell className="text-muted-foreground">
