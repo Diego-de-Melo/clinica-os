@@ -20,6 +20,7 @@ import { APP_NAME } from "@/lib/constants";
 import { toast } from "sonner";
 import { ActionCell, InlineAction } from "@/components/row-actions";
 import { Loader2, Plus, Search, Trash2, Upload } from "lucide-react";
+import { formatCPF } from "@/lib/cpf";
 
 export const Route = createFileRoute("/_app/pacientes/")({
   head: () => ({
@@ -105,7 +106,7 @@ function PacientesPage() {
                     {p.name}
                   </Link>
                 </TableCell>
-                <TableCell>{p.cpf ?? "—"}</TableCell>
+                <TableCell>{p.cpf ? formatCPF(p.cpf) : "—"}</TableCell>
                 <TableCell>{p.father_name ?? "—"}</TableCell>
                 <TableCell>{p.mother_name ?? "—"}</TableCell>
                 <TableCell className="text-muted-foreground">
@@ -161,7 +162,8 @@ function PatientFields({ form, setForm }: {
       </div>
       <div className="space-y-2">
         <Label>CPF</Label>
-        <Input value={form.cpf} onChange={(e) => setForm({ ...form, cpf: e.target.value })} />
+        <Input value={form.cpf} inputMode="numeric" maxLength={14} placeholder="000.000.000-00"
+          onChange={(e) => setForm({ ...form, cpf: formatCPF(e.target.value) })} />
       </div>
       <div className="rounded-lg border p-3 space-y-3">
         <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Pai</div>
@@ -170,8 +172,8 @@ function PatientFields({ form, setForm }: {
             <Input value={form.father_name}
               onChange={(e) => setForm({ ...form, father_name: e.target.value })} /></div>
           <div className="space-y-2"><Label>CPF do pai</Label>
-            <Input value={form.father_cpf}
-              onChange={(e) => setForm({ ...form, father_cpf: e.target.value })} /></div>
+            <Input value={form.father_cpf} inputMode="numeric" maxLength={14} placeholder="000.000.000-00"
+              onChange={(e) => setForm({ ...form, father_cpf: formatCPF(e.target.value) })} /></div>
         </div>
       </div>
       <div className="rounded-lg border p-3 space-y-3">
@@ -181,8 +183,8 @@ function PatientFields({ form, setForm }: {
             <Input value={form.mother_name}
               onChange={(e) => setForm({ ...form, mother_name: e.target.value })} /></div>
           <div className="space-y-2"><Label>CPF da mãe</Label>
-            <Input value={form.mother_cpf}
-              onChange={(e) => setForm({ ...form, mother_cpf: e.target.value })} /></div>
+            <Input value={form.mother_cpf} inputMode="numeric" maxLength={14} placeholder="000.000.000-00"
+              onChange={(e) => setForm({ ...form, mother_cpf: formatCPF(e.target.value) })} /></div>
         </div>
       </div>
     </div>
@@ -257,11 +259,11 @@ function ImportCsvDialog({ onDone }: { onDone: () => void }) {
           const rows = (res.data as Array<Record<string, string>>)
             .map((r) => ({
               name: (r.name || r.nome || "").trim(),
-              cpf: (r.cpf || "").trim() || null,
+              cpf: formatCPF((r.cpf || "").trim()) || null,
               father_name: (r.father_name || r.pai || "").trim() || null,
-              father_cpf: (r.father_cpf || r.cpf_pai || "").trim() || null,
+              father_cpf: formatCPF((r.father_cpf || r.cpf_pai || "").trim()) || null,
               mother_name: (r.mother_name || r.mae || "").trim() || null,
-              mother_cpf: (r.mother_cpf || r.cpf_mae || "").trim() || null,
+              mother_cpf: formatCPF((r.mother_cpf || r.cpf_mae || "").trim()) || null,
             }))
             .filter((r) => r.name.length >= 2);
           if (rows.length === 0) {

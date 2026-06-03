@@ -28,6 +28,7 @@ import { APP_NAME } from "@/lib/constants";
 import { toast } from "sonner";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import type { AppRole } from "@/lib/auth-guards";
+import { formatCPF } from "@/lib/cpf";
 
 export const Route = createFileRoute("/_app/dashboard")({
   head: () => ({
@@ -243,7 +244,7 @@ function DashboardPage() {
                       <Link to="/pacientes/$id" params={{ id: patientId }} className="hover:underline">
                         <div>{r.patient?.name ?? "—"}</div>
                         <div className="text-xs text-muted-foreground font-normal">
-                          CPF: {r.patient?.cpf ?? "—"}
+                          CPF: {r.patient?.cpf ? formatCPF(r.patient.cpf) : "—"}
                         </div>
                       </Link>
                     ) : "—"}
@@ -254,7 +255,7 @@ function DashboardPage() {
                         <div className="font-medium">{recipient.name}</div>
                         <div className="text-xs text-muted-foreground">
                           {INVOICE_FOR_LABEL[inv] ?? "—"}
-                          {recipient.cpf ? ` · CPF: ${recipient.cpf}` : ""}
+                          {recipient.cpf ? ` · CPF: ${formatCPF(recipient.cpf)}` : ""}
                         </div>
                       </Link>
                     ) : "—"}

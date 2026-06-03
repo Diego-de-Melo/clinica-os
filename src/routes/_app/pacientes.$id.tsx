@@ -12,6 +12,7 @@ import {
 import { useSession } from "@/hooks/use-session";
 import { APP_NAME } from "@/lib/constants";
 import { ArrowLeft, Pencil, Plus, Trash2, Eye, Loader2 } from "lucide-react";
+import { formatCPF } from "@/lib/cpf";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -95,14 +96,14 @@ function PatientDetail() {
           )}
         </div>
         <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-          <Field label="CPF" value={data.patient.cpf} />
+          <Field label="CPF" value={formatCPF(data.patient.cpf)} />
           <Field label="Cadastro" value={new Date(data.patient.created_at).toLocaleDateString("pt-BR")} />
           <div />
           <Field label="Pai" value={data.patient.father_name} />
-          <Field label="CPF do pai" value={data.patient.father_cpf} />
+          <Field label="CPF do pai" value={formatCPF(data.patient.father_cpf)} />
           <div />
           <Field label="Mãe" value={data.patient.mother_name} />
-          <Field label="CPF da mãe" value={data.patient.mother_cpf} />
+          <Field label="CPF da mãe" value={formatCPF(data.patient.mother_cpf)} />
         </div>
       </div>
 
@@ -148,7 +149,7 @@ function PatientDetail() {
                   <TableCell>{a.payment_method ?? "—"}</TableCell>
                   <TableCell>
                     <div>{inv ? INVOICE_FOR_LABEL[inv] : "—"}</div>
-                    {recipientCpf && <div className="text-xs text-muted-foreground">CPF: {recipientCpf}</div>}
+                    {recipientCpf && <div className="text-xs text-muted-foreground">CPF: {formatCPF(recipientCpf)}</div>}
                   </TableCell>
                   <TableCell>
                     <StatusBadge status={a.status} />
@@ -242,11 +243,11 @@ function EditPatientDialog({
   const updFn = useServerFn(updatePatient);
   const [form, setForm] = useState({
     name: patient.name,
-    cpf: patient.cpf ?? "",
+    cpf: formatCPF(patient.cpf),
     father_name: patient.father_name ?? "",
-    father_cpf: patient.father_cpf ?? "",
+    father_cpf: formatCPF(patient.father_cpf),
     mother_name: patient.mother_name ?? "",
-    mother_cpf: patient.mother_cpf ?? "",
+    mother_cpf: formatCPF(patient.mother_cpf),
   });
   const mut = useMutation({
     mutationFn: () => updFn({
@@ -269,12 +270,12 @@ function EditPatientDialog({
         <DialogHeader><DialogTitle>Editar paciente</DialogTitle></DialogHeader>
         <form onSubmit={(e) => { e.preventDefault(); mut.mutate(); }} className="space-y-3">
           <div className="space-y-2"><Label>Nome</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required minLength={2} /></div>
-          <div className="space-y-2"><Label>CPF</Label><Input value={form.cpf} onChange={(e) => setForm({ ...form, cpf: e.target.value })} /></div>
+          <div className="space-y-2"><Label>CPF</Label><Input value={form.cpf} inputMode="numeric" maxLength={14} placeholder="000.000.000-00" onChange={(e) => setForm({ ...form, cpf: formatCPF(e.target.value) })} /></div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2"><Label>Pai</Label><Input value={form.father_name} onChange={(e) => setForm({ ...form, father_name: e.target.value })} /></div>
-            <div className="space-y-2"><Label>CPF do pai</Label><Input value={form.father_cpf} onChange={(e) => setForm({ ...form, father_cpf: e.target.value })} /></div>
+            <div className="space-y-2"><Label>CPF do pai</Label><Input value={form.father_cpf} inputMode="numeric" maxLength={14} placeholder="000.000.000-00" onChange={(e) => setForm({ ...form, father_cpf: formatCPF(e.target.value) })} /></div>
             <div className="space-y-2"><Label>Mãe</Label><Input value={form.mother_name} onChange={(e) => setForm({ ...form, mother_name: e.target.value })} /></div>
-            <div className="space-y-2"><Label>CPF da mãe</Label><Input value={form.mother_cpf} onChange={(e) => setForm({ ...form, mother_cpf: e.target.value })} /></div>
+            <div className="space-y-2"><Label>CPF da mãe</Label><Input value={form.mother_cpf} inputMode="numeric" maxLength={14} placeholder="000.000.000-00" onChange={(e) => setForm({ ...form, mother_cpf: formatCPF(e.target.value) })} /></div>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
