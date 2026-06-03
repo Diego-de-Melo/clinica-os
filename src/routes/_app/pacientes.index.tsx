@@ -259,11 +259,11 @@ function ImportCsvDialog({ onDone }: { onDone: () => void }) {
           const rows = (res.data as Array<Record<string, string>>)
             .map((r) => ({
               name: (r.name || r.nome || "").trim(),
-              cpf: (r.cpf || "").trim() || null,
+              cpf: formatCPF((r.cpf || "").trim()) || null,
               father_name: (r.father_name || r.pai || "").trim() || null,
-              father_cpf: (r.father_cpf || r.cpf_pai || "").trim() || null,
+              father_cpf: formatCPF((r.father_cpf || r.cpf_pai || "").trim()) || null,
               mother_name: (r.mother_name || r.mae || "").trim() || null,
-              mother_cpf: (r.mother_cpf || r.cpf_mae || "").trim() || null,
+              mother_cpf: formatCPF((r.mother_cpf || r.cpf_mae || "").trim()) || null,
             }))
             .filter((r) => r.name.length >= 2);
           if (rows.length === 0) {
