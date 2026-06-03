@@ -20,6 +20,7 @@ import { APP_NAME } from "@/lib/constants";
 import { toast } from "sonner";
 import { ActionCell, InlineAction } from "@/components/row-actions";
 import { Loader2, Plus, Search, Trash2, Upload } from "lucide-react";
+import { formatCPF } from "@/lib/cpf";
 
 export const Route = createFileRoute("/_app/pacientes/")({
   head: () => ({
