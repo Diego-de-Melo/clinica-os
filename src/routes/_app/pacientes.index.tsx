@@ -162,7 +162,8 @@ function PatientFields({ form, setForm }: {
       </div>
       <div className="space-y-2">
         <Label>CPF</Label>
-        <Input value={form.cpf} onChange={(e) => setForm({ ...form, cpf: e.target.value })} />
+        <Input value={form.cpf} inputMode="numeric" maxLength={14} placeholder="000.000.000-00"
+          onChange={(e) => setForm({ ...form, cpf: formatCPF(e.target.value) })} />
       </div>
       <div className="rounded-lg border p-3 space-y-3">
         <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Pai</div>
@@ -171,8 +172,8 @@ function PatientFields({ form, setForm }: {
             <Input value={form.father_name}
               onChange={(e) => setForm({ ...form, father_name: e.target.value })} /></div>
           <div className="space-y-2"><Label>CPF do pai</Label>
-            <Input value={form.father_cpf}
-              onChange={(e) => setForm({ ...form, father_cpf: e.target.value })} /></div>
+            <Input value={form.father_cpf} inputMode="numeric" maxLength={14} placeholder="000.000.000-00"
+              onChange={(e) => setForm({ ...form, father_cpf: formatCPF(e.target.value) })} /></div>
         </div>
       </div>
       <div className="rounded-lg border p-3 space-y-3">
@@ -182,8 +183,8 @@ function PatientFields({ form, setForm }: {
             <Input value={form.mother_name}
               onChange={(e) => setForm({ ...form, mother_name: e.target.value })} /></div>
           <div className="space-y-2"><Label>CPF da mãe</Label>
-            <Input value={form.mother_cpf}
-              onChange={(e) => setForm({ ...form, mother_cpf: e.target.value })} /></div>
+            <Input value={form.mother_cpf} inputMode="numeric" maxLength={14} placeholder="000.000.000-00"
+              onChange={(e) => setForm({ ...form, mother_cpf: formatCPF(e.target.value) })} /></div>
         </div>
       </div>
     </div>
