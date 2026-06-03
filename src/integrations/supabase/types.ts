@@ -110,6 +110,100 @@ export type Database = {
         }
         Relationships: []
       }
+      backup_configs: {
+        Row: {
+          clinic_id: string
+          enabled: boolean
+          last_error: string | null
+          last_run_at: string | null
+          last_status: string | null
+          retention_days: number
+          updated_at: string
+        }
+        Insert: {
+          clinic_id: string
+          enabled?: boolean
+          last_error?: string | null
+          last_run_at?: string | null
+          last_status?: string | null
+          retention_days?: number
+          updated_at?: string
+        }
+        Update: {
+          clinic_id?: string
+          enabled?: boolean
+          last_error?: string | null
+          last_run_at?: string | null
+          last_status?: string | null
+          retention_days?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "backup_configs_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: true
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      backups: {
+        Row: {
+          auth_tag: string
+          checksum_sha256: string
+          clinic_id: string
+          created_at: string
+          created_by: string
+          error: string | null
+          id: string
+          iv: string
+          object_path: string
+          record_counts: Json
+          size_bytes: number
+          status: string
+          version: number
+        }
+        Insert: {
+          auth_tag: string
+          checksum_sha256: string
+          clinic_id: string
+          created_at?: string
+          created_by?: string
+          error?: string | null
+          id?: string
+          iv: string
+          object_path: string
+          record_counts?: Json
+          size_bytes?: number
+          status?: string
+          version: number
+        }
+        Update: {
+          auth_tag?: string
+          checksum_sha256?: string
+          clinic_id?: string
+          created_at?: string
+          created_by?: string
+          error?: string | null
+          id?: string
+          iv?: string
+          object_path?: string
+          record_counts?: Json
+          size_bytes?: number
+          status?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "backups_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinics: {
         Row: {
           created_at: string
