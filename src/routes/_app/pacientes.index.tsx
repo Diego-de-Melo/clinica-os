@@ -21,7 +21,7 @@ import { toast } from "sonner";
 import { ActionCell, InlineAction } from "@/components/row-actions";
 import { Loader2, Plus, Search, Trash2, Upload } from "lucide-react";
 
-export const Route = createFileRoute("/_app/pacientes")({
+export const Route = createFileRoute("/_app/pacientes/")({
   head: () => ({
     meta: [{ title: `Pacientes — ${APP_NAME}` }, { name: "robots", content: "noindex, nofollow" }],
   }),
