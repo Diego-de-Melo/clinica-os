@@ -270,12 +270,12 @@ function EditPatientDialog({
         <DialogHeader><DialogTitle>Editar paciente</DialogTitle></DialogHeader>
         <form onSubmit={(e) => { e.preventDefault(); mut.mutate(); }} className="space-y-3">
           <div className="space-y-2"><Label>Nome</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required minLength={2} /></div>
-          <div className="space-y-2"><Label>CPF</Label><Input value={form.cpf} onChange={(e) => setForm({ ...form, cpf: e.target.value })} /></div>
+          <div className="space-y-2"><Label>CPF</Label><Input value={form.cpf} inputMode="numeric" maxLength={14} placeholder="000.000.000-00" onChange={(e) => setForm({ ...form, cpf: formatCPF(e.target.value) })} /></div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2"><Label>Pai</Label><Input value={form.father_name} onChange={(e) => setForm({ ...form, father_name: e.target.value })} /></div>
-            <div className="space-y-2"><Label>CPF do pai</Label><Input value={form.father_cpf} onChange={(e) => setForm({ ...form, father_cpf: e.target.value })} /></div>
+            <div className="space-y-2"><Label>CPF do pai</Label><Input value={form.father_cpf} inputMode="numeric" maxLength={14} placeholder="000.000.000-00" onChange={(e) => setForm({ ...form, father_cpf: formatCPF(e.target.value) })} /></div>
             <div className="space-y-2"><Label>Mãe</Label><Input value={form.mother_name} onChange={(e) => setForm({ ...form, mother_name: e.target.value })} /></div>
-            <div className="space-y-2"><Label>CPF da mãe</Label><Input value={form.mother_cpf} onChange={(e) => setForm({ ...form, mother_cpf: e.target.value })} /></div>
+            <div className="space-y-2"><Label>CPF da mãe</Label><Input value={form.mother_cpf} inputMode="numeric" maxLength={14} placeholder="000.000.000-00" onChange={(e) => setForm({ ...form, mother_cpf: formatCPF(e.target.value) })} /></div>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
