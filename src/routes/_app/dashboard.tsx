@@ -28,6 +28,7 @@ import { APP_NAME } from "@/lib/constants";
 import { toast } from "sonner";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import type { AppRole } from "@/lib/auth-guards";
+import { formatCPF } from "@/lib/cpf";
 
 export const Route = createFileRoute("/_app/dashboard")({
   head: () => ({
