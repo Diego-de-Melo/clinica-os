@@ -19,6 +19,7 @@ import { Route as AppEquipeRouteImport } from './routes/_app/equipe'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
 import { Route as AppPacientesIndexRouteImport } from './routes/_app/pacientes.index'
 import { Route as AppPacientesIdRouteImport } from './routes/_app/pacientes.$id'
+import { Route as ApiPublicHooksRunClinicBackupsRouteImport } from './routes/api/public/hooks/run-clinic-backups'
 
 const MasterAdminRoute = MasterAdminRouteImport.update({
   id: '/master-admin',
@@ -69,6 +70,12 @@ const AppPacientesIdRoute = AppPacientesIdRouteImport.update({
   path: '/pacientes/$id',
   getParentRoute: () => AppRoute,
 } as any)
+const ApiPublicHooksRunClinicBackupsRoute =
+  ApiPublicHooksRunClinicBackupsRouteImport.update({
+    id: '/api/public/hooks/run-clinic-backups',
+    path: '/api/public/hooks/run-clinic-backups',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -80,6 +87,7 @@ export interface FileRoutesByFullPath {
   '/equipe': typeof AppEquipeRoute
   '/pacientes/$id': typeof AppPacientesIdRoute
   '/pacientes/': typeof AppPacientesIndexRoute
+  '/api/public/hooks/run-clinic-backups': typeof ApiPublicHooksRunClinicBackupsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -91,6 +99,7 @@ export interface FileRoutesByTo {
   '/equipe': typeof AppEquipeRoute
   '/pacientes/$id': typeof AppPacientesIdRoute
   '/pacientes': typeof AppPacientesIndexRoute
+  '/api/public/hooks/run-clinic-backups': typeof ApiPublicHooksRunClinicBackupsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -104,6 +113,7 @@ export interface FileRoutesById {
   '/_app/equipe': typeof AppEquipeRoute
   '/_app/pacientes/$id': typeof AppPacientesIdRoute
   '/_app/pacientes/': typeof AppPacientesIndexRoute
+  '/api/public/hooks/run-clinic-backups': typeof ApiPublicHooksRunClinicBackupsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -117,6 +127,7 @@ export interface FileRouteTypes {
     | '/equipe'
     | '/pacientes/$id'
     | '/pacientes/'
+    | '/api/public/hooks/run-clinic-backups'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -128,6 +139,7 @@ export interface FileRouteTypes {
     | '/equipe'
     | '/pacientes/$id'
     | '/pacientes'
+    | '/api/public/hooks/run-clinic-backups'
   id:
     | '__root__'
     | '/'
@@ -140,6 +152,7 @@ export interface FileRouteTypes {
     | '/_app/equipe'
     | '/_app/pacientes/$id'
     | '/_app/pacientes/'
+    | '/api/public/hooks/run-clinic-backups'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -149,6 +162,7 @@ export interface RootRouteChildren {
   BloqueioRoute: typeof BloqueioRoute
   LoginRoute: typeof LoginRoute
   MasterAdminRoute: typeof MasterAdminRoute
+  ApiPublicHooksRunClinicBackupsRoute: typeof ApiPublicHooksRunClinicBackupsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -223,6 +237,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppPacientesIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/api/public/hooks/run-clinic-backups': {
+      id: '/api/public/hooks/run-clinic-backups'
+      path: '/api/public/hooks/run-clinic-backups'
+      fullPath: '/api/public/hooks/run-clinic-backups'
+      preLoaderRoute: typeof ApiPublicHooksRunClinicBackupsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -249,7 +270,18 @@ const rootRouteChildren: RootRouteChildren = {
   BloqueioRoute: BloqueioRoute,
   LoginRoute: LoginRoute,
   MasterAdminRoute: MasterAdminRoute,
+  ApiPublicHooksRunClinicBackupsRoute: ApiPublicHooksRunClinicBackupsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
