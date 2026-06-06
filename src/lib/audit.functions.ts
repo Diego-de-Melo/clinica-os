@@ -78,6 +78,10 @@ export const listAuditLogs = createServerFn({ method: "GET" })
       .object({
         limit: z.number().int().min(1).max(500).default(100),
         action: z.string().max(80).optional(),
+        clinicId: z.string().uuid().optional(),
+        userEmail: z.string().max(120).optional(),
+        from: z.string().datetime().optional(),
+        to: z.string().datetime().optional(),
       })
       .parse(input ?? {}),
   )
@@ -89,7 +93,52 @@ export const listAuditLogs = createServerFn({ method: "GET" })
       .order("created_at", { ascending: false })
       .limit(data.limit);
     if (data.action) q = q.eq("action", data.action);
+    if (data.clinicId) q = q.eq("clinic_id", data.clinicId);
+    if (data.from) q = q.gte("created_at", data.from);
+    if (data.to) q = q.lte("created_at", data.to);
     const { data: rows, error } = await q;
     if (error) throwDatabaseError(error);
-    return rows ?? [];
+
+    const logs = rows ?? [];
+    if (logs.length === 0) return [];
+
+    // Enriquece com email do usuário e nome da clínica
+    const userIds = Array.from(new Set(logs.map((l) => l.user_id).filter(Boolean) as string[]));
+    const clinicIds = Array.from(new Set(logs.map((l) => l.clinic_id).filter(Boolean) as string[]));
+
+    const [profilesRes, clinicsRes] = await Promise.all([
+      userIds.length
+        ? supabase.from("profiles").select("id, email").in("id", userIds)
+        : Promise.resolve({ data: [] as Array<{ id: string; email: string }>, error: null }),
+      clinicIds.length
+        ? supabase.from("clinics").select("id, name").in("id", clinicIds)
+        : Promise.resolve({ data: [] as Array<{ id: string; name: string }>, error: null }),
+    ]);
+
+    const emailMap = new Map((profilesRes.data ?? []).map((p) => [p.id, p.email]));
+    const clinicMap = new Map((clinicsRes.data ?? []).map((c) => [c.id, c.name]));
+
+    let enriched = logs.map((l) => ({
+      ...l,
+      user_email: l.user_id ? emailMap.get(l.user_id) ?? null : null,
+      clinic_name: l.clinic_id ? clinicMap.get(l.clinic_id) ?? null : null,
+    }));
+
+    if (data.userEmail) {
+      const needle = data.userEmail.toLowerCase();
+      enriched = enriched.filter((l) => l.user_email?.toLowerCase().includes(needle));
+    }
+    return enriched;
+  });
+
+export const listClinicsForFilter = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase } = context;
+    const { data, error } = await supabase
+      .from("clinics")
+      .select("id, name")
+      .order("name");
+    if (error) throwDatabaseError(error);
+    return data ?? [];
   });

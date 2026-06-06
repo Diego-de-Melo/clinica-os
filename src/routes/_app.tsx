@@ -10,6 +10,7 @@ import {
   Settings,
   LogOut,
   Stethoscope,
+  Database,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -52,6 +53,7 @@ function AppLayout() {
     { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
     { title: "Pacientes", url: "/pacientes", icon: Users },
     ...(isAdmin ? [{ title: "Equipe", url: "/equipe", icon: Settings }] : []),
+    ...(isAdmin ? [{ title: "Backups", url: "/backups", icon: Database }] : []),
   ];
 
   const isActive = (url: string) => pathname === url || pathname.startsWith(url + "/");

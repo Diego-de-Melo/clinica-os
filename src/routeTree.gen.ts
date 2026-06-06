@@ -15,10 +15,13 @@ import { Route as BloqueioRouteImport } from './routes/bloqueio'
 import { Route as AceitarConviteRouteImport } from './routes/aceitar-convite'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as MasterAdminLogsRouteImport } from './routes/master-admin.logs'
 import { Route as AppEquipeRouteImport } from './routes/_app/equipe'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
+import { Route as AppBackupsRouteImport } from './routes/_app/backups'
 import { Route as AppPacientesIndexRouteImport } from './routes/_app/pacientes.index'
 import { Route as AppPacientesIdRouteImport } from './routes/_app/pacientes.$id'
+import { Route as ApiPublicHooksRunClinicBackupsRouteImport } from './routes/api/public/hooks/run-clinic-backups'
 
 const MasterAdminRoute = MasterAdminRouteImport.update({
   id: '/master-admin',
@@ -49,6 +52,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MasterAdminLogsRoute = MasterAdminLogsRouteImport.update({
+  id: '/logs',
+  path: '/logs',
+  getParentRoute: () => MasterAdminRoute,
+} as any)
 const AppEquipeRoute = AppEquipeRouteImport.update({
   id: '/equipe',
   path: '/equipe',
@@ -57,6 +65,11 @@ const AppEquipeRoute = AppEquipeRouteImport.update({
 const AppDashboardRoute = AppDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppBackupsRoute = AppBackupsRouteImport.update({
+  id: '/backups',
+  path: '/backups',
   getParentRoute: () => AppRoute,
 } as any)
 const AppPacientesIndexRoute = AppPacientesIndexRouteImport.update({
@@ -69,28 +82,40 @@ const AppPacientesIdRoute = AppPacientesIdRouteImport.update({
   path: '/pacientes/$id',
   getParentRoute: () => AppRoute,
 } as any)
+const ApiPublicHooksRunClinicBackupsRoute =
+  ApiPublicHooksRunClinicBackupsRouteImport.update({
+    id: '/api/public/hooks/run-clinic-backups',
+    path: '/api/public/hooks/run-clinic-backups',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/aceitar-convite': typeof AceitarConviteRoute
   '/bloqueio': typeof BloqueioRoute
   '/login': typeof LoginRoute
-  '/master-admin': typeof MasterAdminRoute
+  '/master-admin': typeof MasterAdminRouteWithChildren
+  '/backups': typeof AppBackupsRoute
   '/dashboard': typeof AppDashboardRoute
   '/equipe': typeof AppEquipeRoute
+  '/master-admin/logs': typeof MasterAdminLogsRoute
   '/pacientes/$id': typeof AppPacientesIdRoute
   '/pacientes/': typeof AppPacientesIndexRoute
+  '/api/public/hooks/run-clinic-backups': typeof ApiPublicHooksRunClinicBackupsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/aceitar-convite': typeof AceitarConviteRoute
   '/bloqueio': typeof BloqueioRoute
   '/login': typeof LoginRoute
-  '/master-admin': typeof MasterAdminRoute
+  '/master-admin': typeof MasterAdminRouteWithChildren
+  '/backups': typeof AppBackupsRoute
   '/dashboard': typeof AppDashboardRoute
   '/equipe': typeof AppEquipeRoute
+  '/master-admin/logs': typeof MasterAdminLogsRoute
   '/pacientes/$id': typeof AppPacientesIdRoute
   '/pacientes': typeof AppPacientesIndexRoute
+  '/api/public/hooks/run-clinic-backups': typeof ApiPublicHooksRunClinicBackupsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -99,11 +124,14 @@ export interface FileRoutesById {
   '/aceitar-convite': typeof AceitarConviteRoute
   '/bloqueio': typeof BloqueioRoute
   '/login': typeof LoginRoute
-  '/master-admin': typeof MasterAdminRoute
+  '/master-admin': typeof MasterAdminRouteWithChildren
+  '/_app/backups': typeof AppBackupsRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/equipe': typeof AppEquipeRoute
+  '/master-admin/logs': typeof MasterAdminLogsRoute
   '/_app/pacientes/$id': typeof AppPacientesIdRoute
   '/_app/pacientes/': typeof AppPacientesIndexRoute
+  '/api/public/hooks/run-clinic-backups': typeof ApiPublicHooksRunClinicBackupsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -113,10 +141,13 @@ export interface FileRouteTypes {
     | '/bloqueio'
     | '/login'
     | '/master-admin'
+    | '/backups'
     | '/dashboard'
     | '/equipe'
+    | '/master-admin/logs'
     | '/pacientes/$id'
     | '/pacientes/'
+    | '/api/public/hooks/run-clinic-backups'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -124,10 +155,13 @@ export interface FileRouteTypes {
     | '/bloqueio'
     | '/login'
     | '/master-admin'
+    | '/backups'
     | '/dashboard'
     | '/equipe'
+    | '/master-admin/logs'
     | '/pacientes/$id'
     | '/pacientes'
+    | '/api/public/hooks/run-clinic-backups'
   id:
     | '__root__'
     | '/'
@@ -136,10 +170,13 @@ export interface FileRouteTypes {
     | '/bloqueio'
     | '/login'
     | '/master-admin'
+    | '/_app/backups'
     | '/_app/dashboard'
     | '/_app/equipe'
+    | '/master-admin/logs'
     | '/_app/pacientes/$id'
     | '/_app/pacientes/'
+    | '/api/public/hooks/run-clinic-backups'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -148,7 +185,8 @@ export interface RootRouteChildren {
   AceitarConviteRoute: typeof AceitarConviteRoute
   BloqueioRoute: typeof BloqueioRoute
   LoginRoute: typeof LoginRoute
-  MasterAdminRoute: typeof MasterAdminRoute
+  MasterAdminRoute: typeof MasterAdminRouteWithChildren
+  ApiPublicHooksRunClinicBackupsRoute: typeof ApiPublicHooksRunClinicBackupsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -195,6 +233,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/master-admin/logs': {
+      id: '/master-admin/logs'
+      path: '/logs'
+      fullPath: '/master-admin/logs'
+      preLoaderRoute: typeof MasterAdminLogsRouteImport
+      parentRoute: typeof MasterAdminRoute
+    }
     '/_app/equipe': {
       id: '/_app/equipe'
       path: '/equipe'
@@ -207,6 +252,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AppDashboardRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/backups': {
+      id: '/_app/backups'
+      path: '/backups'
+      fullPath: '/backups'
+      preLoaderRoute: typeof AppBackupsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/pacientes/': {
@@ -223,10 +275,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppPacientesIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/api/public/hooks/run-clinic-backups': {
+      id: '/api/public/hooks/run-clinic-backups'
+      path: '/api/public/hooks/run-clinic-backups'
+      fullPath: '/api/public/hooks/run-clinic-backups'
+      preLoaderRoute: typeof ApiPublicHooksRunClinicBackupsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 interface AppRouteChildren {
+  AppBackupsRoute: typeof AppBackupsRoute
   AppDashboardRoute: typeof AppDashboardRoute
   AppEquipeRoute: typeof AppEquipeRoute
   AppPacientesIdRoute: typeof AppPacientesIdRoute
@@ -234,6 +294,7 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppBackupsRoute: AppBackupsRoute,
   AppDashboardRoute: AppDashboardRoute,
   AppEquipeRoute: AppEquipeRoute,
   AppPacientesIdRoute: AppPacientesIdRoute,
@@ -242,13 +303,26 @@ const AppRouteChildren: AppRouteChildren = {
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
+interface MasterAdminRouteChildren {
+  MasterAdminLogsRoute: typeof MasterAdminLogsRoute
+}
+
+const MasterAdminRouteChildren: MasterAdminRouteChildren = {
+  MasterAdminLogsRoute: MasterAdminLogsRoute,
+}
+
+const MasterAdminRouteWithChildren = MasterAdminRoute._addFileChildren(
+  MasterAdminRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
   AceitarConviteRoute: AceitarConviteRoute,
   BloqueioRoute: BloqueioRoute,
   LoginRoute: LoginRoute,
-  MasterAdminRoute: MasterAdminRoute,
+  MasterAdminRoute: MasterAdminRouteWithChildren,
+  ApiPublicHooksRunClinicBackupsRoute: ApiPublicHooksRunClinicBackupsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
