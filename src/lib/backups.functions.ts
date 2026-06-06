@@ -181,7 +181,8 @@ export const restoreBackup = createServerFn({ method: "POST" })
 
     if (snapshot.patients?.length) {
       const rows = snapshot.patients.map((p) => ({ ...p, clinic_id: profile.clinic_id }));
-      const { error } = await supabaseAdmin.from("patients").upsert(rows, { onConflict: "id" });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await supabaseAdmin.from("patients").upsert(rows as any, { onConflict: "id" });
       if (error) throw new Error(`patients: ${error.message}`);
       upPatients = rows.length;
     }
@@ -189,7 +190,8 @@ export const restoreBackup = createServerFn({ method: "POST" })
       const rows = snapshot.attendances.map((a) => ({ ...a, clinic_id: profile.clinic_id }));
       const { error } = await supabaseAdmin
         .from("attendances")
-        .upsert(rows, { onConflict: "id" });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .upsert(rows as any, { onConflict: "id" });
       if (error) throw new Error(`attendances: ${error.message}`);
       upAttendances = rows.length;
     }
