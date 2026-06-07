@@ -5,7 +5,7 @@ import {
   assertAdminRole,
   requireClinicProfile,
 } from "@/lib/auth-guards";
-import { logAuditInternal } from "@/lib/audit.functions";
+import { logAuditInternal } from "@/lib/audit.server";
 import { throwDatabaseError } from "@/lib/safe-errors";
 
 export const listPatients = createServerFn({ method: "GET" })

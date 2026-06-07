@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { assertAdminRole, requireClinicProfile } from "@/lib/auth-guards";
-import { logAuditInternal } from "@/lib/audit.functions";
+import { logAuditInternal } from "@/lib/audit.server";
 import { throwDatabaseError } from "@/lib/safe-errors";
 
 export const exportPatientData = createServerFn({ method: "POST" })
