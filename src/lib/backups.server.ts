@@ -88,7 +88,10 @@ export async function runBackupForClinic(
     })
     .select("id")
     .single();
-  if (insErr) throw new Error(`insert: ${insErr.message}`);
+  if (insErr) {
+    console.error("[backup] insert failed", insErr);
+    throw new Error("Falha ao registrar o backup. Tente novamente.");
+  }
 
   return {
     backupId: inserted.id,
