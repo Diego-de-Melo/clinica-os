@@ -67,7 +67,10 @@ export async function runBackupForClinic(
       contentType: "application/octet-stream",
       upsert: true,
     });
-  if (upErr) throw new Error(`upload: ${upErr.message}`);
+  if (upErr) {
+    console.error("[backup] upload failed", upErr);
+    throw new Error("Falha ao salvar o backup. Tente novamente.");
+  }
 
   const { data: inserted, error: insErr } = await supabaseAdmin
     .from("backups")
