@@ -128,7 +128,10 @@ export async function downloadAndDecrypt(backupId: string, clinicId: string): Pr
   const { data: file, error: dlErr } = await supabaseAdmin.storage
     .from(BUCKET)
     .download(bk.object_path);
-  if (dlErr || !file) throw new Error(`download: ${dlErr?.message ?? "vazio"}`);
+  if (dlErr || !file) {
+    if (dlErr) console.error("[backup] download failed", dlErr);
+    throw new Error("Não foi possível baixar o backup.");
+  }
 
   const cipherBuf = Buffer.from(await file.arrayBuffer());
   const { decryptBuffer } = await import("./backup-crypto.server");
