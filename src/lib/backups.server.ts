@@ -23,10 +23,12 @@ export async function runBackupForClinic(
     supabaseAdmin.from("consents").select("*").eq("clinic_id", clinicId),
   ]);
 
-  if (clinicRes.error) throw new Error(`clinics: ${clinicRes.error.message}`);
-  if (patientsRes.error) throw new Error(`patients: ${patientsRes.error.message}`);
-  if (attendancesRes.error) throw new Error(`attendances: ${attendancesRes.error.message}`);
-  if (consentsRes.error) throw new Error(`consents: ${consentsRes.error.message}`);
+  const snapErr =
+    clinicRes.error ?? patientsRes.error ?? attendancesRes.error ?? consentsRes.error;
+  if (snapErr) {
+    console.error("[backup] snapshot failed", snapErr);
+    throw new Error("Falha ao gerar backup. Tente novamente.");
+  }
 
   const payload = {
     schema_version: 1,
