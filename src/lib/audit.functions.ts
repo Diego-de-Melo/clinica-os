@@ -35,41 +35,6 @@ export const logAudit = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-// Internal helper for use inside other server functions (with their supabase ctx)
-export async function logAuditInternal(
-  supabase: import("@supabase/supabase-js").SupabaseClient<
-    import("@/integrations/supabase/types").Database
-  >,
-  params: {
-    action: string;
-    entity?: string | null;
-    recordId?: string | null;
-    metadata?: Record<string, unknown> | null;
-  },
-) {
-  const req = (() => {
-    try {
-      return getRequest();
-    } catch {
-      return null;
-    }
-  })();
-  const ip =
-    req?.headers.get("cf-connecting-ip") ??
-    req?.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    null;
-  const ua = req?.headers.get("user-agent") ?? null;
-
-  const { error } = await supabase.rpc("log_audit", {
-    _action: params.action,
-    _entity: params.entity ?? undefined,
-    _record_id: params.recordId ?? undefined,
-    _metadata: (params.metadata ?? null) as never,
-    _ip: ip ?? undefined,
-    _user_agent: ua ?? undefined,
-  });
-  if (error) console.error("[audit] log failed:", error.message);
-}
 
 export const listAuditLogs = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
