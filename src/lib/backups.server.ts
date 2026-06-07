@@ -150,7 +150,10 @@ export async function createSignedTempDownload(
       contentType: "application/json",
       upsert: true,
     });
-  if (upErr) throw new Error(`tmp upload: ${upErr.message}`);
+  if (upErr) {
+    console.error("[backup] tmp upload failed", upErr);
+    throw new Error("Não foi possível preparar o download do backup.");
+  }
 
   const { data: signed, error: sigErr } = await supabaseAdmin.storage
     .from(BUCKET)
