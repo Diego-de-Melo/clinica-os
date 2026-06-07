@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { requireClinicProfile, assertAdminRole } from "@/lib/auth-guards";
-import { logAuditInternal } from "@/lib/audit.server";
+const logAuditInternal: typeof import("@/lib/audit.server").logAuditInternal = async (...args) => (await import("@/lib/audit.server")).logAuditInternal(...args);
 import { throwDatabaseError } from "@/lib/safe-errors";
 
 export const listBackups = createServerFn({ method: "GET" })

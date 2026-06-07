@@ -5,7 +5,7 @@ import {
   assertAdminRole,
   requireClinicProfile,
 } from "@/lib/auth-guards";
-import { logAuditInternal } from "@/lib/audit.server";
+const logAuditInternal: typeof import("@/lib/audit.server").logAuditInternal = async (...args) => (await import("@/lib/audit.server")).logAuditInternal(...args);
 import { throwDatabaseError } from "@/lib/safe-errors";
 
 export const listPatients = createServerFn({ method: "GET" })
