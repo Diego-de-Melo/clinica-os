@@ -195,7 +195,10 @@ export const restoreBackup = createServerFn({ method: "POST" })
         .from("attendances")
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .upsert(rows as any, { onConflict: "id" });
-      if (error) throw new Error(`attendances: ${error.message}`);
+      if (error) {
+        console.error("[backup.restore] attendances upsert failed", error);
+        throw new Error("Falha ao restaurar atendimentos.");
+      }
       upAttendances = rows.length;
     }
 
