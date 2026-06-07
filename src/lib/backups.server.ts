@@ -23,10 +23,12 @@ export async function runBackupForClinic(
     supabaseAdmin.from("consents").select("*").eq("clinic_id", clinicId),
   ]);
 
-  if (clinicRes.error) throw new Error(`clinics: ${clinicRes.error.message}`);
-  if (patientsRes.error) throw new Error(`patients: ${patientsRes.error.message}`);
-  if (attendancesRes.error) throw new Error(`attendances: ${attendancesRes.error.message}`);
-  if (consentsRes.error) throw new Error(`consents: ${consentsRes.error.message}`);
+  const snapErr =
+    clinicRes.error ?? patientsRes.error ?? attendancesRes.error ?? consentsRes.error;
+  if (snapErr) {
+    console.error("[backup] snapshot failed", snapErr);
+    throw new Error("Falha ao gerar backup. Tente novamente.");
+  }
 
   const payload = {
     schema_version: 1,
@@ -65,7 +67,10 @@ export async function runBackupForClinic(
       contentType: "application/octet-stream",
       upsert: true,
     });
-  if (upErr) throw new Error(`upload: ${upErr.message}`);
+  if (upErr) {
+    console.error("[backup] upload failed", upErr);
+    throw new Error("Falha ao salvar o backup. Tente novamente.");
+  }
 
   const { data: inserted, error: insErr } = await supabaseAdmin
     .from("backups")
@@ -83,7 +88,10 @@ export async function runBackupForClinic(
     })
     .select("id")
     .single();
-  if (insErr) throw new Error(`insert: ${insErr.message}`);
+  if (insErr) {
+    console.error("[backup] insert failed", insErr);
+    throw new Error("Falha ao registrar o backup. Tente novamente.");
+  }
 
   return {
     backupId: inserted.id,
@@ -120,7 +128,10 @@ export async function downloadAndDecrypt(backupId: string, clinicId: string): Pr
   const { data: file, error: dlErr } = await supabaseAdmin.storage
     .from(BUCKET)
     .download(bk.object_path);
-  if (dlErr || !file) throw new Error(`download: ${dlErr?.message ?? "vazio"}`);
+  if (dlErr || !file) {
+    if (dlErr) console.error("[backup] download failed", dlErr);
+    throw new Error("Não foi possível baixar o backup.");
+  }
 
   const cipherBuf = Buffer.from(await file.arrayBuffer());
   const { decryptBuffer } = await import("./backup-crypto.server");
@@ -139,14 +150,20 @@ export async function createSignedTempDownload(
       contentType: "application/json",
       upsert: true,
     });
-  if (upErr) throw new Error(`tmp upload: ${upErr.message}`);
+  if (upErr) {
+    console.error("[backup] tmp upload failed", upErr);
+    throw new Error("Não foi possível preparar o download do backup.");
+  }
 
   const { data: signed, error: sigErr } = await supabaseAdmin.storage
     .from(BUCKET)
     .createSignedUrl(tmpPath, 60 * 15, {
       download: `backup-${backupId}.json`,
     });
-  if (sigErr || !signed) throw new Error(`sign: ${sigErr?.message ?? "vazio"}`);
+  if (sigErr || !signed) {
+    if (sigErr) console.error("[backup] sign url failed", sigErr);
+    throw new Error("Não foi possível gerar o link de download.");
+  }
 
   return {
     url: signed.signedUrl,
