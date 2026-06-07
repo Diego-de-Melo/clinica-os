@@ -160,7 +160,10 @@ export async function createSignedTempDownload(
     .createSignedUrl(tmpPath, 60 * 15, {
       download: `backup-${backupId}.json`,
     });
-  if (sigErr || !signed) throw new Error(`sign: ${sigErr?.message ?? "vazio"}`);
+  if (sigErr || !signed) {
+    if (sigErr) console.error("[backup] sign url failed", sigErr);
+    throw new Error("Não foi possível gerar o link de download.");
+  }
 
   return {
     url: signed.signedUrl,
