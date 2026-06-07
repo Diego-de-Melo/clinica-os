@@ -183,7 +183,10 @@ export const restoreBackup = createServerFn({ method: "POST" })
       const rows = snapshot.patients.map((p) => ({ ...p, clinic_id: profile.clinic_id }));
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await supabaseAdmin.from("patients").upsert(rows as any, { onConflict: "id" });
-      if (error) throw new Error(`patients: ${error.message}`);
+      if (error) {
+        console.error("[backup.restore] patients upsert failed", error);
+        throw new Error("Falha ao restaurar pacientes.");
+      }
       upPatients = rows.length;
     }
     if (snapshot.attendances?.length) {
