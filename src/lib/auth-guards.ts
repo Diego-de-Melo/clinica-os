@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { throwDatabaseError } from "@/lib/safe-errors";
 
-export type AppRole = "super_admin" | "admin" | "contador" | "usuario";
+export type AppRole = "super_admin" | "admin" | "contador" | "operador" | "usuario";
 
 export type ClinicProfile = {
   clinic_id: string;
