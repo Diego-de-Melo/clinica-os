@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
-  assertAdminRole,
+  assertPatientWriter,
   requireClinicProfile,
 } from "@/lib/auth-guards";
 const logAuditInternal: typeof import("@/lib/audit.server").logAuditInternal = async (...args) => (await import("@/lib/audit.server")).logAuditInternal(...args);
@@ -64,7 +64,7 @@ export const createPatient = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const { supabase, userId } = context;
     const prof = await requireClinicProfile(supabase, userId);
-    assertAdminRole(prof.role, "Apenas Admin pode cadastrar pacientes");
+    assertPatientWriter(prof.role, "Apenas Admin ou Operador podem cadastrar pacientes");
 
     // Duplicate name check (case-insensitive) within the same clinic
     const trimmed = data.name.trim();
@@ -100,7 +100,7 @@ export const updatePatient = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const { supabase, userId } = context;
     const prof = await requireClinicProfile(supabase, userId);
-    assertAdminRole(prof.role, "Apenas Admin pode editar pacientes");
+    assertPatientWriter(prof.role, "Apenas Admin ou Operador podem editar pacientes");
     const { id, ...rest } = data;
     const { error } = await supabase
       .from("patients")
@@ -120,7 +120,7 @@ export const deletePatient = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const { supabase, userId } = context;
     const prof = await requireClinicProfile(supabase, userId);
-    assertAdminRole(prof.role, "Apenas Admin pode remover pacientes");
+    assertPatientWriter(prof.role, "Apenas Admin ou Operador podem remover pacientes");
     const { error } = await supabase
       .from("patients")
       .update({ deleted_at: new Date().toISOString() })
@@ -142,7 +142,7 @@ export const bulkCreatePatients = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const { supabase, userId } = context;
     const prof = await requireClinicProfile(supabase, userId);
-    assertAdminRole(prof.role, "Apenas o admin pode importar CSV");
+    assertPatientWriter(prof.role, "Apenas Admin ou Operador podem importar CSV");
     const clinicId = prof.clinic_id;
     const rows = data.patients.map((p) => ({ ...p, clinic_id: clinicId }));
     const { error, count } = await supabase

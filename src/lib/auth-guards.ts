@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { throwDatabaseError } from "@/lib/safe-errors";
 
-export type AppRole = "super_admin" | "admin" | "contador" | "usuario";
+export type AppRole = "super_admin" | "admin" | "contador" | "operador" | "usuario";
 
 export type ClinicProfile = {
   clinic_id: string;
@@ -36,9 +36,24 @@ export function assertAdminRole(role: AppRole, message = "Apenas Admin pode real
   if (role !== "admin") throw new Error(message);
 }
 
+export function assertPatientWriter(
+  role: AppRole,
+  message = "Apenas Admin ou Operador podem realizar esta ação",
+) {
+  if (role !== "admin" && role !== "operador") throw new Error(message);
+}
+
+export function assertAttendanceWriter(
+  role: AppRole,
+  message = "Apenas Admin ou Operador podem realizar esta ação",
+) {
+  if (role !== "admin" && role !== "operador") throw new Error(message);
+}
+
 export function assertStaffRole(
   role: AppRole,
-  message = "Apenas Admin ou Contador podem realizar esta ação",
+  message = "Apenas Admin, Contador ou Operador podem realizar esta ação",
 ) {
-  if (role !== "admin" && role !== "contador") throw new Error(message);
+  if (role !== "admin" && role !== "contador" && role !== "operador") throw new Error(message);
 }
+

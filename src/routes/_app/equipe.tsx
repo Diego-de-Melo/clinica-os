@@ -31,10 +31,11 @@ export const Route = createFileRoute("/_app/equipe")({
   component: EquipePage,
 });
 
-type Role = "admin" | "contador" | "usuario";
+type Role = "admin" | "contador" | "operador" | "usuario";
 const ROLE_LABELS: Record<string, string> = {
   admin: "Admin",
   contador: "Contador",
+  operador: "Operador",
   usuario: "Usuário",
   user: "Usuário",
   super_admin: "Super Admin",
@@ -65,7 +66,7 @@ function EquipePage() {
       <div className="flex items-end justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Equipe da clínica</h1>
-          <p className="text-sm text-muted-foreground">Convide e defina níveis de acesso.</p>
+          <p className="text-sm text-muted-foreground">Convide e defina níveis de acesso. Você pode ter mais de um Admin. Use <strong>Operador</strong> para dar acesso a pacientes e atendimentos sem permitir gerenciar a equipe.</p>
         </div>
         <NewMemberDialog onDone={() => qc.invalidateQueries({ queryKey: ["team"] })} />
       </div>
@@ -84,7 +85,7 @@ function EquipePage() {
             {isLoading && <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Carregando…</TableCell></TableRow>}
             {(team ?? []).map((m) => {
               const isSelf = m.id === session?.userId;
-              const isRoleEditable = !isSelf && (m.role === "admin" || m.role === "contador" || m.role === "usuario");
+              const isRoleEditable = !isSelf && (m.role === "admin" || m.role === "contador" || m.role === "operador" || m.role === "usuario");
               return (
                 <TableRow key={m.id}>
                   <TableCell className="font-medium">{m.email}</TableCell>
@@ -98,6 +99,7 @@ function EquipePage() {
                         <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="admin">Admin</SelectItem>
+                          <SelectItem value="operador">Operador</SelectItem>
                           <SelectItem value="contador">Contador</SelectItem>
                           <SelectItem value="usuario">Usuário</SelectItem>
                         </SelectContent>
@@ -178,6 +180,7 @@ function NewMemberDialog({ onDone }: { onDone: () => void }) {
               <SelectContent>
                 <SelectItem value="usuario">Usuário — somente leitura</SelectItem>
                 <SelectItem value="contador">Contador — edita status de atendimentos</SelectItem>
+                <SelectItem value="operador">Operador — cria, edita e exclui pacientes e atendimentos</SelectItem>
                 <SelectItem value="admin">Admin — controle total da clínica</SelectItem>
               </SelectContent>
             </Select>
