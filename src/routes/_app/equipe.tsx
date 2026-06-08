@@ -66,7 +66,7 @@ function EquipePage() {
       <div className="flex items-end justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Equipe da clínica</h1>
-          <p className="text-sm text-muted-foreground">Convide e defina níveis de acesso.</p>
+          <p className="text-sm text-muted-foreground">Convide e defina níveis de acesso. Você pode ter mais de um Admin. Use <strong>Operador</strong> para dar acesso a pacientes e atendimentos sem permitir gerenciar a equipe.</p>
         </div>
         <NewMemberDialog onDone={() => qc.invalidateQueries({ queryKey: ["team"] })} />
       </div>
