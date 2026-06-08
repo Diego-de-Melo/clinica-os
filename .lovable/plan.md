@@ -1,79 +1,51 @@
+## Objetivo
 
-# Logs Super Admin + Backups Automáticos Criptografados
+Hoje os papéis são limitados: só **Admin** mexe em pacientes/atendimentos, **Contador** só muda status, **Usuário** só visualiza. Você quis dar a uma pessoa acesso para "criar, editar, excluir e visualizar pacientes e atendimentos" — e isso hoje só existe como Admin (que também gerencia equipe, backups, etc.).
 
-## 1. Tela de Logs no Super Admin
+Duas entregas, na mesma rodada:
 
-Nova rota `/master-admin/logs` (filha de `master-admin`), acessível apenas para `super_admin`.
+1. **Criar um papel novo "Operador"** com exatamente esse escopo (CRUD completo em pacientes e atendimentos, sem mexer em equipe nem backups). Admin continua sendo o "dono" da clínica.
+2. **Melhorar a tela Equipe** deixando claro que você pode ter **vários Admins** (caso queira dar acesso total mesmo).
 
-Funcionalidades:
-- Lista todos os `audit_logs` de todas as clínicas (a policy atual já permite super_admin)
-- Filtros: clínica, usuário (email), ação, entidade, intervalo de datas
-- Paginação (50 por página), ordenado por mais recente
-- Colunas: data/hora, clínica, usuário, ação, entidade, IP, user-agent, metadata (expansível)
-- Botão "Exportar CSV" (gera o arquivo no cliente a partir do resultado atual)
-- Link no header do `master-admin` para acessar a tela
+## O que muda na prática (visão do usuário)
 
-Backend:
-- Estender `listAuditLogs` (`src/lib/audit.functions.ts`) para super_admin: aceitar filtros, fazer join com `profiles` e `clinics` para retornar email/nome da clínica. Mantém comportamento atual para admin de clínica (só vê a própria).
+Na tela **Equipe → Adicionar membro**, as opções de papel passam a ser:
 
-## 2. Backups Automáticos Criptografados
+- **Admin** — controle total da clínica (pacientes, atendimentos, equipe, backups). Pode ter mais de um.
+- **Operador** *(novo)* — cria, edita, exclui e visualiza pacientes e atendimentos. Não gerencia equipe nem backups.
+- **Contador** — altera só o status dos atendimentos (Pendente/Emitido/CPF inválido).
+- **Usuário** — só visualiza.
 
-### Modelo de dados (migração)
-- Tabela `backup_configs` (1 por clínica): `clinic_id` (PK), `enabled` (default true), `retention_days` (30/90/365, default 90), `schedule` (default `daily_03`), `last_run_at`, `last_status`, `last_error`
-- Tabela `backups`: `id`, `clinic_id`, `version` (sequencial por clínica), `created_at`, `size_bytes`, `record_counts` (jsonb com counts de patients/attendances), `object_path`, `iv` (bytea), `auth_tag` (bytea), `checksum_sha256`, `status` (`success|failed|restoring`), `expires_at`, `created_by` (`system|user_uuid`)
-- RLS: admin lê/baixa apenas backups da sua clínica; super_admin vê todos; insert apenas via service_role (cron + server fn admin)
-- GRANTs apropriados em ambas
+Cada opção ganha uma descrição curta embaixo para você escolher sem dúvida.
 
-### Storage
-- Bucket privado `clinic-backups` (criação via tool dedicada). Sem políticas de leitura pública; todo acesso via service_role + URL assinada.
+## Detalhes técnicos
 
-### Criptografia
-- Algoritmo: **AES-256-GCM**, IV de 12 bytes aleatório por backup, auth_tag armazenado na tabela
-- Chave única do servidor: secret `BACKUP_ENCRYPTION_KEY` (32 bytes base64), criada via `secrets--add_secret`
-- O conteúdo plano é `{ clinic, patients[], attendances[], consents[], exported_at, version }` em JSON
-- Helper `src/lib/backup-crypto.server.ts` com `encrypt(plaintext)` / `decrypt(cipher, iv, tag)` usando `node:crypto`
+### Banco (migration)
 
-### Job diário (03:00 BRT)
-- Rota pública `src/routes/api/public/hooks/run-clinic-backups.ts` (POST)
-  - Valida header `apikey` contra `SUPABASE_PUBLISHABLE_KEY`
-  - Itera clínicas ativas com `backup_configs.enabled = true`
-  - Para cada uma: lê `patients` + `attendances` + `consents` via `supabaseAdmin`, serializa, criptografa, faz upload em `clinic-backups/{clinic_id}/{yyyy-mm-dd}-v{N}.bin`, insere registro em `backups`, atualiza `last_run_at`
-  - Aplica retenção: deleta (storage + linha) backups com `created_at < now() - retention_days`
-  - Loga `backup.run` em `audit_logs` por clínica
-- Agendamento via `pg_cron + pg_net` chamando a rota às 06:00 UTC (= 03:00 BRT)
+- `ALTER TYPE public.app_role ADD VALUE 'operador'`.
+- Atualizar as RLS policies de `patients` e `attendances` para permitir INSERT/UPDATE/DELETE quando `current_role() IN ('admin','operador')` (hoje é só `'admin'`). SELECT já cobre toda a clínica.
+- Trigger `prevent_profile_privilege_escalation` continua bloqueando auto-promoção; só Admin/Super Admin promove via tela Equipe.
+- Sem mudança em `backup_configs`, `backups`, `audit_logs`, `profiles` (Operador não tem acesso a essas áreas).
 
-### Server functions (admin da clínica)
-- `listBackups()` → lista backups da clínica (sem download_url)
-- `generateBackupNow()` → executa o mesmo pipeline imediatamente, marca `created_by = user_id`, loga `backup.manual_create`
-- `getBackupDownloadUrl({ id })` → valida admin + clínica, **descriptografa em memória**, faz re-upload temporário num path único `tmp/{uuid}.json` no bucket, retorna URL assinada de **15 min**, loga `backup.download` com metadata `{ backup_id, ip }`. Agenda exclusão do tmp após 20 min via job de limpeza.
-  - Alternativa mais simples: retornar o conteúdo descriptografado direto pelo serverFn como `Blob` (mas exigiria streaming). Optar pelo padrão URL assinada para arquivos grandes.
-- `getBackupConfig()` / `updateBackupConfig({ enabled, retention_days })`
-- `restoreBackup({ id, confirmation })` → exige `confirmation === "RESTAURAR"`; descriptografa; faz upsert idempotente em transação (não apaga dados criados após o snapshot, apenas reinsere/atualiza por id); loga `backup.restore` com diff de contagens
+### Guards de servidor
 
-### UI (admin clínica)
-- Nova rota `/_app/backups`: link no menu principal
-- Card de configuração: switch "Backup automático", select retenção (30/90/365 dias), última execução, próximo agendamento
-- Botão "Gerar backup agora" (com spinner)
-- Tabela de backups: data, versão, tamanho, registros (pacientes/atendimentos), ações [Baixar] [Restaurar]
-- Modal de restauração: aviso vermelho + campo de confirmação digitando `RESTAURAR`
+- `src/lib/auth-guards.ts`: adicionar tipo `"operador"` em `AppRole` e novo helper `assertPatientWriter(role)` / `assertAttendanceWriter(role)` que aceitam `admin` e `operador`.
+- `src/lib/patients.functions.ts`: trocar `assertAdminRole` por `assertPatientWriter` em `createPatient`, `updatePatient`, `deletePatient`, `bulkCreatePatients`.
+- `src/lib/attendances.functions.ts`: trocar `assertAdminRole` por `assertAttendanceWriter` em `createAttendance`, `updateAttendance`, `deleteAttendance`. `updateAttendanceStatus` continua com `assertStaffRole` (Admin/Contador) — Operador também passa a ser válido lá, então estender o helper.
+- Equipe/Backups continuam exigindo `admin`/`super_admin` (sem mudança).
+- Mensagens de erro atualizadas para "Apenas Admin ou Operador podem…".
 
-### Auditoria
-Eventos registrados: `backup.run` (system, por clínica), `backup.manual_create`, `backup.download`, `backup.restore`, `backup.config_update`, `backup.retention_purge`
+### UI
 
-## 3. Segurança — checklist
-- Chave AES nunca exposta ao cliente (apenas `process.env` no server)
-- Bucket privado, sem policy pública
-- URLs assinadas de 15 min, geradas server-side após verificação de papel + clínica
-- Restauração exige confirmação textual e log de auditoria
-- Cron usa `apikey` (anon key) — endpoint em `/api/public/*` apenas para receber o trigger; toda lógica usa `supabaseAdmin`
-- Tabelas com RLS estrita por `clinic_id` + role
+- `src/routes/_app/equipe.tsx`: adicionar `"operador"` no enum local `Role`, no rótulo (`operador: "Operador"`), nos dois `<Select>` (linha da tabela e modal de adicionar) com a descrição "Operador — cria/edita pacientes e atendimentos".
+- `src/routes/_app.tsx`: rótulo do papel no sidebar (`ROLE_LABELS.operador = "Operador"`).
+- Pequeno texto informativo no topo da página Equipe: *"Você pode ter mais de um Admin. Use Operador quando quiser dar acesso a pacientes e atendimentos sem permitir gerenciar a equipe."*
 
-## 4. Ordem de execução
-1. Migração: tabelas `backup_configs`, `backups`, RLS, GRANTs, índices
-2. Criar secret `BACKUP_ENCRYPTION_KEY` (32 bytes base64)
-3. Criar bucket privado `clinic-backups`
-4. Helpers de cripto + server functions
-5. Rota cron + agendamento pg_cron
-6. UI `/master-admin/logs`
-7. UI `/_app/backups` + link no menu
-8. Estender `listAuditLogs` com filtros para super_admin
+### Testes
+
+- Atualizar `src/lib/rls-policies.test.ts`: `PATIENT_WRITE_ROLES = ["admin","operador"]`, `ATTENDANCE_WRITE_ROLES = ["admin","contador","operador"]`, `ATTENDANCE_DELETE_ROLES = ["admin","operador"]`.
+
+## Fora de escopo
+
+- Não mexer em backups, logs, super-admin, telas existentes além de Equipe e rótulos de papel.
+- Não criar permissões granulares por entidade — só o papel novo "Operador".
