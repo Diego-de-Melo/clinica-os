@@ -85,7 +85,7 @@ function EquipePage() {
             {isLoading && <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Carregando…</TableCell></TableRow>}
             {(team ?? []).map((m) => {
               const isSelf = m.id === session?.userId;
-              const isRoleEditable = !isSelf && (m.role === "admin" || m.role === "contador" || m.role === "usuario");
+              const isRoleEditable = !isSelf && (m.role === "admin" || m.role === "contador" || m.role === "operador" || m.role === "usuario");
               return (
                 <TableRow key={m.id}>
                   <TableCell className="font-medium">{m.email}</TableCell>
