@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
-  assertAdminRole,
+  assertAttendanceWriter,
   assertStaffRole,
   requireClinicProfile,
   type AppRole,
@@ -91,7 +91,7 @@ export const createAttendance = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const { supabase, userId } = context;
     const prof = await requireClinicProfile(supabase, userId);
-    assertAdminRole(prof.role, "Apenas Admin pode registrar atendimentos");
+    assertAttendanceWriter(prof.role, "Apenas Admin ou Operador podem registrar atendimentos");
     const { data: row, error } = await supabase
       .from("attendances")
       .insert({ ...data, clinic_id: prof.clinic_id })
@@ -115,7 +115,7 @@ export const updateAttendance = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const { supabase, userId } = context;
     const prof = await requireClinicProfile(supabase, userId);
-    assertAdminRole(prof.role, "Apenas Admin pode editar atendimentos");
+    assertAttendanceWriter(prof.role, "Apenas Admin ou Operador podem editar atendimentos");
     const { id, ...patch } = data;
     const { error } = await supabase.from("attendances").update(patch).eq("id", id);
     if (error) throwDatabaseError(error);
@@ -136,7 +136,7 @@ export const updateAttendanceStatus = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const { supabase, userId } = context;
     const prof = await requireClinicProfile(supabase, userId);
-    assertStaffRole(prof.role, "Apenas Admin ou Contador podem alterar o status");
+    assertStaffRole(prof.role, "Apenas Admin, Contador ou Operador podem alterar o status");
 
     const { data: current, error: readErr } = await supabase
       .from("attendances")
@@ -171,7 +171,7 @@ export const deleteAttendance = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const { supabase, userId } = context;
     const prof = await requireClinicProfile(supabase, userId);
-    assertAdminRole(prof.role, "Apenas Admin pode remover atendimentos");
+    assertAttendanceWriter(prof.role, "Apenas Admin ou Operador podem remover atendimentos");
     const { error } = await supabase
       .from("attendances")
       .update({ deleted_at: new Date().toISOString() })
