@@ -47,7 +47,7 @@ export function allowedTransitions(
     if (current === "Emitido") return ["Pendente", "CPF Inválido"];
     return [];
   }
-  if (role === "admin") {
+  if (role === "admin" || role === "operador") {
     if (current === "CPF Inválido") return ["Pendente"];
     return [];
   }
