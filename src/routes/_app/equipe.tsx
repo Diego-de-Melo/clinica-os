@@ -180,6 +180,7 @@ function NewMemberDialog({ onDone }: { onDone: () => void }) {
               <SelectContent>
                 <SelectItem value="usuario">Usuário — somente leitura</SelectItem>
                 <SelectItem value="contador">Contador — edita status de atendimentos</SelectItem>
+                <SelectItem value="operador">Operador — cria, edita e exclui pacientes e atendimentos</SelectItem>
                 <SelectItem value="admin">Admin — controle total da clínica</SelectItem>
               </SelectContent>
             </Select>
