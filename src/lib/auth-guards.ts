@@ -36,9 +36,24 @@ export function assertAdminRole(role: AppRole, message = "Apenas Admin pode real
   if (role !== "admin") throw new Error(message);
 }
 
+export function assertPatientWriter(
+  role: AppRole,
+  message = "Apenas Admin ou Operador podem realizar esta ação",
+) {
+  if (role !== "admin" && role !== "operador") throw new Error(message);
+}
+
+export function assertAttendanceWriter(
+  role: AppRole,
+  message = "Apenas Admin ou Operador podem realizar esta ação",
+) {
+  if (role !== "admin" && role !== "operador") throw new Error(message);
+}
+
 export function assertStaffRole(
   role: AppRole,
-  message = "Apenas Admin ou Contador podem realizar esta ação",
+  message = "Apenas Admin, Contador ou Operador podem realizar esta ação",
 ) {
-  if (role !== "admin" && role !== "contador") throw new Error(message);
+  if (role !== "admin" && role !== "contador" && role !== "operador") throw new Error(message);
 }
+
