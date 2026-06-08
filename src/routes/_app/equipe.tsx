@@ -99,6 +99,7 @@ function EquipePage() {
                         <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="admin">Admin</SelectItem>
+                          <SelectItem value="operador">Operador</SelectItem>
                           <SelectItem value="contador">Contador</SelectItem>
                           <SelectItem value="usuario">Usuário</SelectItem>
                         </SelectContent>
