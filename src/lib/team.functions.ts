@@ -41,7 +41,7 @@ export const createTeamMember = createServerFn({ method: "POST" })
       .object({
         email: z.string().email(),
         password: z.string().min(8).max(72),
-        role: z.enum(["admin", "contador", "usuario"]).default("usuario"),
+        role: z.enum(["admin", "contador", "operador", "usuario"]).default("usuario"),
       })
       .parse(input),
   )
@@ -63,7 +63,7 @@ export const updateTeamMemberRole = createServerFn({ method: "POST" })
     z
       .object({
         id: z.string().uuid(),
-        role: z.enum(["admin", "contador", "usuario"]),
+        role: z.enum(["admin", "contador", "operador", "usuario"]),
       })
       .parse(input),
   )
