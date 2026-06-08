@@ -31,10 +31,11 @@ export const Route = createFileRoute("/_app/equipe")({
   component: EquipePage,
 });
 
-type Role = "admin" | "contador" | "usuario";
+type Role = "admin" | "contador" | "operador" | "usuario";
 const ROLE_LABELS: Record<string, string> = {
   admin: "Admin",
   contador: "Contador",
+  operador: "Operador",
   usuario: "Usuário",
   user: "Usuário",
   super_admin: "Super Admin",
