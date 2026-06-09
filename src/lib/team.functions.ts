@@ -6,10 +6,7 @@ import { throwDatabaseError, throwServiceError } from "@/lib/safe-errors";
 
 type TeamRole = "admin" | "contador" | "operador" | "usuario";
 
-function isEmailAlreadyRegisteredError(error: {
-  code?: string | null;
-  message?: string | null;
-}) {
+function isEmailAlreadyRegisteredError(error: { code?: string | null; message?: string | null }) {
   const message = error.message?.toLowerCase() ?? "";
   return (
     error.code === "email_exists" ||
@@ -76,7 +73,6 @@ const requireClinicAdmin = createMiddleware({ type: "function" })
     }
     return next({ context: { clinicId: data.clinic_id, role: data.role } });
   });
-
 export const listTeam = createServerFn({ method: "GET" })
   .middleware([requireClinicAdmin])
   .handler(async ({ context }) => {
