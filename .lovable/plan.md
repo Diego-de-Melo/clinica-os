@@ -1,51 +1,41 @@
-## Objetivo
+## Causa do erro
 
-Hoje os papéis são limitados: só **Admin** mexe em pacientes/atendimentos, **Contador** só muda status, **Usuário** só visualiza. Você quis dar a uma pessoa acesso para "criar, editar, excluir e visualizar pacientes e atendimentos" — e isso hoje só existe como Admin (que também gerencia equipe, backups, etc.).
+Ao tentar **trocar o papel de um membro** (inclusive para "Operador"), o servidor chama `supabaseAdmin.from("profiles").update({ role })`. Existe um gatilho no banco — `prevent_profile_privilege_escalation` — que bloqueia qualquer mudança de `role`, `clinic_id`, `email` etc. a menos que quem está rodando seja Super Admin.
 
-Duas entregas, na mesma rodada:
+O cliente admin do servidor (service_role) não tem `auth.uid()`, então `is_super_admin()` devolve `false` e o gatilho dispara: **"Not allowed to change role"**. A tela mostra só "Erro" porque o `catch` da UI engole a mensagem real.
 
-1. **Criar um papel novo "Operador"** com exatamente esse escopo (CRUD completo em pacientes e atendimentos, sem mexer em equipe nem backups). Admin continua sendo o "dono" da clínica.
-2. **Melhorar a tela Equipe** deixando claro que você pode ter **vários Admins** (caso queira dar acesso total mesmo).
+Isso afeta **toda** mudança de papel (operador, contador, usuário, admin) — não é específico de Operador. A criação de membro novo funciona no INSERT, mas o usuário também relata erro nessa tela; provavelmente é o mesmo caminho (tentar editar depois de criar) — fica coberto pela mesma correção.
 
-## O que muda na prática (visão do usuário)
+## Correção
 
-Na tela **Equipe → Adicionar membro**, as opções de papel passam a ser:
+### 1. Migration — relaxar o gatilho para o service_role
 
-- **Admin** — controle total da clínica (pacientes, atendimentos, equipe, backups). Pode ter mais de um.
-- **Operador** *(novo)* — cria, edita, exclui e visualiza pacientes e atendimentos. Não gerencia equipe nem backups.
-- **Contador** — altera só o status dos atendimentos (Pendente/Emitido/CPF inválido).
-- **Usuário** — só visualiza.
+Atualizar `public.prevent_profile_privilege_escalation()` para permitir alterações quando a requisição vier com JWT `role = 'service_role'` (mesmo padrão já usado em `handle_new_user`). Isso mantém a proteção contra usuário comum se auto-promover (anon/authenticated continuam bloqueados), mas libera as funções de servidor confiáveis (`team.functions.ts` / `clinics.functions.ts`) que são, elas mesmas, protegidas por `requireClinicAdmin` / `requireSuperAdmin`.
 
-Cada opção ganha uma descrição curta embaixo para você escolher sem dúvida.
+Pseudo-SQL:
 
-## Detalhes técnicos
+```text
+CREATE OR REPLACE FUNCTION public.prevent_profile_privilege_escalation()
+...
+DECLARE
+  _claims jsonb := COALESCE(NULLIF(current_setting('request.jwt.claims', true), '')::jsonb, '{}'::jsonb);
+  _is_service_role boolean := COALESCE(_claims->>'role','') = 'service_role';
+BEGIN
+  IF _is_service_role OR public.is_super_admin() THEN
+    RETURN NEW;
+  END IF;
+  -- restante das checagens permanece igual
+END;
+```
 
-### Banco (migration)
+Também remover o gatilho duplicado `profiles_prevent_escalation` (existem dois apontando para a mesma função em `public.profiles`).
 
-- `ALTER TYPE public.app_role ADD VALUE 'operador'`.
-- Atualizar as RLS policies de `patients` e `attendances` para permitir INSERT/UPDATE/DELETE quando `current_role() IN ('admin','operador')` (hoje é só `'admin'`). SELECT já cobre toda a clínica.
-- Trigger `prevent_profile_privilege_escalation` continua bloqueando auto-promoção; só Admin/Super Admin promove via tela Equipe.
-- Sem mudança em `backup_configs`, `backups`, `audit_logs`, `profiles` (Operador não tem acesso a essas áreas).
+### 2. UI — mostrar a mensagem real do erro
 
-### Guards de servidor
-
-- `src/lib/auth-guards.ts`: adicionar tipo `"operador"` em `AppRole` e novo helper `assertPatientWriter(role)` / `assertAttendanceWriter(role)` que aceitam `admin` e `operador`.
-- `src/lib/patients.functions.ts`: trocar `assertAdminRole` por `assertPatientWriter` em `createPatient`, `updatePatient`, `deletePatient`, `bulkCreatePatients`.
-- `src/lib/attendances.functions.ts`: trocar `assertAdminRole` por `assertAttendanceWriter` em `createAttendance`, `updateAttendance`, `deleteAttendance`. `updateAttendanceStatus` continua com `assertStaffRole` (Admin/Contador) — Operador também passa a ser válido lá, então estender o helper.
-- Equipe/Backups continuam exigindo `admin`/`super_admin` (sem mudança).
-- Mensagens de erro atualizadas para "Apenas Admin ou Operador podem…".
-
-### UI
-
-- `src/routes/_app/equipe.tsx`: adicionar `"operador"` no enum local `Role`, no rótulo (`operador: "Operador"`), nos dois `<Select>` (linha da tabela e modal de adicionar) com a descrição "Operador — cria/edita pacientes e atendimentos".
-- `src/routes/_app.tsx`: rótulo do papel no sidebar (`ROLE_LABELS.operador = "Operador"`).
-- Pequeno texto informativo no topo da página Equipe: *"Você pode ter mais de um Admin. Use Operador quando quiser dar acesso a pacientes e atendimentos sem permitir gerenciar a equipe."*
-
-### Testes
-
-- Atualizar `src/lib/rls-policies.test.ts`: `PATIENT_WRITE_ROLES = ["admin","operador"]`, `ATTENDANCE_WRITE_ROLES = ["admin","contador","operador"]`, `ATTENDANCE_DELETE_ROLES = ["admin","operador"]`.
+Em `src/routes/_app/equipe.tsx`, trocar `toast.error("Erro")` no `NewMemberDialog.submit` por `toast.error(err instanceof Error ? err.message : "Erro")`, igual já é feito nas mutations `delMut` / `roleMut`. Isso evita futuras situações de "só aparece Erro" sem explicação.
 
 ## Fora de escopo
 
-- Não mexer em backups, logs, super-admin, telas existentes além de Equipe e rótulos de papel.
-- Não criar permissões granulares por entidade — só o papel novo "Operador".
+- Não mexer em RLS de `patients` / `attendances` (já está correto, inclui `operador`).
+- Não alterar `team.functions.ts` (a guarda `requireClinicAdmin` já restringe quem chama).
+- Não criar permissões granulares novas.
