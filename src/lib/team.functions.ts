@@ -186,4 +186,3 @@ export const deleteTeamMember = createServerFn({ method: "POST" })
     if (error) throwDatabaseError(error);
     return { ok: true };
   });
-
