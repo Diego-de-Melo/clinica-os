@@ -156,7 +156,7 @@ function NewMemberDialog({ onDone }: { onDone: () => void }) {
       onDone();
     } catch (err) {
       console.error("[team] create failed", err);
-      toast.error("Erro");
+      toast.error(err instanceof Error ? err.message : "Erro");
     } finally {
       setLoading(false);
     }
