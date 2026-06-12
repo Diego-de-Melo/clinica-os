@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { listAuditLogs, listClinicsForFilter } from "@/lib/audit.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/use-session";
@@ -38,6 +38,7 @@ function LogsPage() {
     queryKey: ["clinics-filter"],
     queryFn: () => clinicsFn(),
     enabled: !!session,
+    throwOnError: false,
   });
 
   const filters = useMemo(
@@ -56,6 +57,7 @@ function LogsPage() {
     queryKey: ["audit-logs", filters],
     queryFn: () => listFn({ data: filters }),
     enabled: !!session,
+    throwOnError: false,
   });
 
   async function logout() {
@@ -63,16 +65,12 @@ function LogsPage() {
     navigate({ to: "/login" });
   }
 
-  useEffect(() => {
-    if (!loadingSession && (!session || session.role !== "super_admin")) {
-      navigate({ to: "/login" });
-    }
-  }, [loadingSession, session, navigate]);
-
-  if (loadingSession) {
+  if (loadingSession || !session) {
     return <div className="min-h-screen grid place-items-center text-sm text-muted-foreground">Carregando…</div>;
   }
-  if (!session || session.role !== "super_admin") return null;
+  if (session.role !== "super_admin") {
+    return <div className="min-h-screen grid place-items-center text-sm text-destructive">Acesso negado.</div>;
+  }
 
   function exportCSV() {
     const rows = logs ?? [];
