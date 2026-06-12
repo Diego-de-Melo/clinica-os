@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
@@ -54,6 +54,7 @@ export const Route = createFileRoute("/master-admin")({
 function SuperAdminPage() {
   const navigate = useNavigate();
   const { data: session, isLoading } = useSession();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
   const qc = useQueryClient();
   const listFn = useServerFn(listClinics);
   const updateFn = useServerFn(updateClinic);
@@ -127,6 +128,9 @@ function SuperAdminPage() {
         </div>
       </header>
 
+      {pathname !== "/master-admin" ? (
+        <Outlet />
+      ) : (
       <main className="p-6 max-w-7xl mx-auto space-y-6">
         <div className="flex items-end justify-between gap-4 flex-wrap">
           <div>
@@ -281,6 +285,7 @@ function SuperAdminPage() {
           </Table>
         </div>
       </main>
+      )}
     </div>
   );
 }
