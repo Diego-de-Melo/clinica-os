@@ -1,8 +1,12 @@
 import { createServerFn, createMiddleware } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { throwDatabaseError, throwServiceError } from "@/lib/safe-errors";
+
+async function getSupabaseAdmin() {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  return supabaseAdmin;
+}
 
 // Guard: only super admin can run these
 const requireSuperAdmin = createMiddleware({ type: "function" })
@@ -24,17 +28,17 @@ const requireSuperAdmin = createMiddleware({ type: "function" })
 export const listClinics = createServerFn({ method: "GET" })
   .middleware([requireSuperAdmin])
   .handler(async () => {
-    const { data, error } = await supabaseAdmin
+    const admin = await getSupabaseAdmin();
+    const { data, error } = await admin
       .from("clinics")
       .select("*")
       .order("created_at", { ascending: false });
     if (error) throwDatabaseError(error);
 
-    // also fetch counts and admin emails
     const ids = (data ?? []).map((c) => c.id);
     let adminsByClinic: Record<string, string[]> = {};
     if (ids.length) {
-      const { data: profs } = await supabaseAdmin
+      const { data: profs } = await admin
         .from("profiles")
         .select("clinic_id, email, role")
         .in("clinic_id", ids);
@@ -64,7 +68,8 @@ export const createClinicWithAdmin = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data }) => {
-    const { data: clinic, error: cErr } = await supabaseAdmin
+    const admin = await getSupabaseAdmin();
+    const { data: clinic, error: cErr } = await admin
       .from("clinics")
       .insert({
         name: data.name,
@@ -76,12 +81,12 @@ export const createClinicWithAdmin = createServerFn({ method: "POST" })
     if (cErr) throwDatabaseError(cErr);
 
     const { data: invited, error: uErr } =
-      await supabaseAdmin.auth.admin.inviteUserByEmail(data.adminEmail, {
+      await admin.auth.admin.inviteUserByEmail(data.adminEmail, {
         data: { role: "admin", clinic_id: clinic.id },
         redirectTo: data.redirectTo,
       });
     if (uErr) {
-      await supabaseAdmin.from("clinics").delete().eq("id", clinic.id);
+      await admin.from("clinics").delete().eq("id", clinic.id);
       throwServiceError(uErr, "Não foi possível enviar o convite.");
     }
 
@@ -99,20 +104,21 @@ export const resendClinicAdminInvite = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data }) => {
-    const { data: profs, error: pErr } = await supabaseAdmin
+    const admin = await getSupabaseAdmin();
+    const { data: profs, error: pErr } = await admin
       .from("profiles")
       .select("email, role")
       .eq("clinic_id", data.clinicId);
     if (pErr) throwDatabaseError(pErr);
-    const admin = (profs ?? []).find((p) => p.role === "admin");
-    if (!admin?.email) throw new Error("Nenhum admin encontrado para esta clínica.");
+    const adm = (profs ?? []).find((p) => p.role === "admin");
+    if (!adm?.email) throw new Error("Nenhum admin encontrado para esta clínica.");
 
-    const { error } = await supabaseAdmin.auth.admin.inviteUserByEmail(admin.email, {
+    const { error } = await admin.auth.admin.inviteUserByEmail(adm.email, {
       data: { role: "admin", clinic_id: data.clinicId },
       redirectTo: data.redirectTo,
     });
     if (error) throwDatabaseError(error);
-    return { ok: true, email: admin.email };
+    return { ok: true, email: adm.email };
   });
 
 export const updateClinic = createServerFn({ method: "POST" })
@@ -128,6 +134,7 @@ export const updateClinic = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data }) => {
+    const admin = await getSupabaseAdmin();
     const patch: {
       name?: string;
       status?: string;
@@ -137,7 +144,7 @@ export const updateClinic = createServerFn({ method: "POST" })
     if (data.status !== undefined) patch.status = data.status;
     if (data.expirationDate !== undefined)
       patch.expiration_date = data.expirationDate;
-    const { error } = await supabaseAdmin
+    const { error } = await admin
       .from("clinics")
       .update(patch)
       .eq("id", data.id);
@@ -149,15 +156,15 @@ export const deleteClinic = createServerFn({ method: "POST" })
   .middleware([requireSuperAdmin])
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data }) => {
-    // delete associated auth users
-    const { data: profs } = await supabaseAdmin
+    const admin = await getSupabaseAdmin();
+    const { data: profs } = await admin
       .from("profiles")
       .select("id")
       .eq("clinic_id", data.id);
     for (const p of profs ?? []) {
-      await supabaseAdmin.auth.admin.deleteUser(p.id).catch(() => {});
+      await admin.auth.admin.deleteUser(p.id).catch(() => {});
     }
-    const { error } = await supabaseAdmin
+    const { error } = await admin
       .from("clinics")
       .delete()
       .eq("id", data.id);

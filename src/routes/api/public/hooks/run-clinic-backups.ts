@@ -6,15 +6,10 @@ export const Route = createFileRoute("/api/public/hooks/run-clinic-backups")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        // Autorização: aceita apikey = anon key OU header Authorization Bearer = service role
-        const apikey = request.headers.get("apikey");
+        // Autorização: apenas service role key
         const auth = request.headers.get("authorization");
-        const expectedAnon = process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.SUPABASE_ANON_KEY;
         const expectedService = process.env.SUPABASE_SERVICE_ROLE_KEY;
-        const ok =
-          (apikey && expectedAnon && apikey === expectedAnon) ||
-          (auth && expectedService && auth === `Bearer ${expectedService}`);
-        if (!ok) {
+        if (!auth || !expectedService || auth !== `Bearer ${expectedService}`) {
           return new Response("Unauthorized", { status: 401 });
         }
 

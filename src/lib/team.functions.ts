@@ -1,10 +1,14 @@
 import { createServerFn, createMiddleware } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { throwDatabaseError, throwServiceError } from "@/lib/safe-errors";
 
 type TeamRole = "admin" | "contador" | "operador" | "usuario";
+
+async function getSupabaseAdmin() {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  return supabaseAdmin;
+}
 
 function isEmailAlreadyRegisteredError(error: { code?: string | null; message?: string | null }) {
   const message = error.message?.toLowerCase() ?? "";
@@ -16,9 +20,10 @@ function isEmailAlreadyRegisteredError(error: { code?: string | null; message?: 
 }
 
 async function findAuthUserByEmail(email: string) {
+  const admin = await getSupabaseAdmin();
   const normalizedEmail = email.trim().toLowerCase();
   for (let page = 1; page <= 20; page += 1) {
-    const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 1000 });
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
     if (error) throwServiceError(error, "Não foi possível verificar o e-mail informado.");
     const user = data.users.find((item) => item.email?.trim().toLowerCase() === normalizedEmail);
     if (user) return user;
@@ -28,7 +33,8 @@ async function findAuthUserByEmail(email: string) {
 }
 
 async function assertUserCanJoinClinic(userId: string, clinicId: string) {
-  const { data: profile, error: profileError } = await supabaseAdmin
+  const admin = await getSupabaseAdmin();
+  const { data: profile, error: profileError } = await admin
     .from("profiles")
     .select("clinic_id")
     .eq("id", userId)
@@ -51,7 +57,8 @@ async function ensureClinicProfile({
   clinicId: string;
 }) {
   await assertUserCanJoinClinic(userId, clinicId);
-  const { error } = await supabaseAdmin
+  const admin = await getSupabaseAdmin();
+  const { error } = await admin
     .from("profiles")
     .upsert({ id: userId, email, role, clinic_id: clinicId }, { onConflict: "id" });
   if (error) throwDatabaseError(error);
@@ -77,7 +84,8 @@ export const listTeam = createServerFn({ method: "GET" })
   .middleware([requireClinicAdmin])
   .handler(async ({ context }) => {
     if (!context.clinicId) return [];
-    const { data, error } = await supabaseAdmin
+    const admin = await getSupabaseAdmin();
+    const { data, error } = await admin
       .from("profiles")
       .select("id, email, role, created_at")
       .eq("clinic_id", context.clinicId)
@@ -99,8 +107,9 @@ export const createTeamMember = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     if (!context.clinicId) throw new Error("Sem clínica");
+    const admin = await getSupabaseAdmin();
     const email = data.email.trim().toLowerCase();
-    const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
+    const { data: created, error } = await admin.auth.admin.createUser({
       email,
       password: data.password,
       email_confirm: true,
@@ -115,7 +124,7 @@ export const createTeamMember = createServerFn({ method: "POST" })
         throw new Error("Este e-mail já existe, mas não foi possível localizar o cadastro.");
       }
       await assertUserCanJoinClinic(existingUser.id, context.clinicId);
-      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+      const { error: updateError } = await admin.auth.admin.updateUserById(
         existingUser.id,
         {
           password: data.password,
@@ -154,7 +163,8 @@ export const updateTeamMemberRole = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ context, data }) => {
-    const { data: target } = await supabaseAdmin
+    const admin = await getSupabaseAdmin();
+    const { data: target } = await admin
       .from("profiles")
       .select("clinic_id, id")
       .eq("id", data.id)
@@ -162,7 +172,7 @@ export const updateTeamMemberRole = createServerFn({ method: "POST" })
     if (!target || target.clinic_id !== context.clinicId) {
       throw new Error("Membro não pertence à sua clínica");
     }
-    const { error } = await supabaseAdmin
+    const { error } = await admin
       .from("profiles")
       .update({ role: data.role })
       .eq("id", data.id);
@@ -174,7 +184,8 @@ export const deleteTeamMember = createServerFn({ method: "POST" })
   .middleware([requireClinicAdmin])
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ context, data }) => {
-    const { data: target } = await supabaseAdmin
+    const admin = await getSupabaseAdmin();
+    const { data: target } = await admin
       .from("profiles")
       .select("clinic_id, id")
       .eq("id", data.id)
@@ -182,7 +193,7 @@ export const deleteTeamMember = createServerFn({ method: "POST" })
     if (!target || target.clinic_id !== context.clinicId) {
       throw new Error("Membro não pertence à sua clínica");
     }
-    const { error } = await supabaseAdmin.auth.admin.deleteUser(data.id);
+    const { error } = await admin.auth.admin.deleteUser(data.id);
     if (error) throwDatabaseError(error);
     return { ok: true };
   });
