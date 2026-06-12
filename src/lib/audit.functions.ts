@@ -2,7 +2,27 @@ import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireClinicProfile, assertSuperAdminRole } from "@/lib/auth-guards";
 import { throwDatabaseError } from "@/lib/safe-errors";
+
+const SENSITIVE_KEYS = new Set([
+  "cpf", "cnpj", "password", "senha", "token", "secret", "key",
+]);
+
+function sanitizeMetadata(meta: Record<string, unknown> | null): Record<string, unknown> | null {
+  if (!meta) return null;
+  const clean: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(meta)) {
+    if (SENSITIVE_KEYS.has(k.toLowerCase())) {
+      clean[k] = "[REDACTED]";
+    } else if (typeof v === "string" && /\d{3}\.\d{3}\.\d{3}-\d{2}/.test(v)) {
+      clean[k] = v.replace(/\d{3}\.\d{3}\.\d{3}-\d{2}/g, "***.***.***-**");
+    } else {
+      clean[k] = v;
+    }
+  }
+  return clean;
+}
 
 const inputSchema = z.object({
   action: z.string().min(1).max(80),
@@ -16,7 +36,7 @@ export const logAudit = createServerFn({ method: "POST" })
   .inputValidator((input) => inputSchema.parse(input))
   .handler(async ({ context, data }) => {
     const { supabase } = context;
-    const req = getRequest();
+    const req = (() => { try { return getRequest(); } catch { return null; } })();
     const ip =
       req?.headers.get("cf-connecting-ip") ??
       req?.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
@@ -27,7 +47,7 @@ export const logAudit = createServerFn({ method: "POST" })
       _action: data.action,
       _entity: data.entity ?? undefined,
       _record_id: data.recordId ?? undefined,
-      _metadata: (data.metadata ?? null) as never,
+      _metadata: sanitizeMetadata(data.metadata ?? null) as never,
       _ip: ip ?? undefined,
       _user_agent: ua ?? undefined,
     });
@@ -51,7 +71,10 @@ export const listAuditLogs = createServerFn({ method: "GET" })
       .parse(input ?? {}),
   )
   .handler(async ({ context, data }) => {
-    const { supabase } = context;
+    const { supabase, userId } = context;
+    const profile = await requireClinicProfile(supabase, userId);
+    assertSuperAdminRole(profile.role);
+
     let q = supabase
       .from("audit_logs")
       .select("*")
@@ -67,7 +90,6 @@ export const listAuditLogs = createServerFn({ method: "GET" })
     const logs = rows ?? [];
     if (logs.length === 0) return [];
 
-    // Enriquece com email do usuário e nome da clínica
     const userIds = Array.from(new Set(logs.map((l) => l.user_id).filter(Boolean) as string[]));
     const clinicIds = Array.from(new Set(logs.map((l) => l.clinic_id).filter(Boolean) as string[]));
 
@@ -99,7 +121,10 @@ export const listAuditLogs = createServerFn({ method: "GET" })
 export const listClinicsForFilter = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { supabase } = context;
+    const { supabase, userId } = context;
+    const profile = await requireClinicProfile(supabase, userId);
+    assertSuperAdminRole(profile.role);
+
     const { data, error } = await supabase
       .from("clinics")
       .select("id, name")

@@ -57,3 +57,10 @@ export function assertStaffRole(
   if (role !== "admin" && role !== "contador" && role !== "operador") throw new Error(message);
 }
 
+export function assertSuperAdminRole(
+  role: AppRole,
+  message = "Apenas Super Admin pode realizar esta ação",
+) {
+  if (role !== "super_admin") throw new Error(message);
+}
+
