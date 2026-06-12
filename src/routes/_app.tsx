@@ -1,7 +1,6 @@
-import { createFileRoute, Outlet, useNavigate, Link, useRouterState } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useNavigate, Link, useRouterState, useMatch } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/use-session";
-import { requireAppSession } from "@/lib/route-auth";
 import { APP_NAME } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,12 +12,9 @@ import {
   Database,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useEffect } from "react";
 
 export const Route = createFileRoute("/_app")({
-  beforeLoad: async () => {
-    const session = await requireAppSession();
-    return { session };
-  },
   component: AppLayout,
 });
 
@@ -33,12 +29,16 @@ const ROLE_LABELS: Record<string, string> = {
 
 function AppLayout() {
   const navigate = useNavigate();
-  const { session: routeSession } = Route.useRouteContext();
-  const { data: liveSession, isLoading } = useSession();
-  const session = liveSession ?? routeSession;
+  const { data: session, isLoading } = useSession();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
-  if (isLoading && !session) {
+  useEffect(() => {
+    if (!isLoading && !session) {
+      navigate({ to: "/login" });
+    }
+  }, [isLoading, session, navigate]);
+
+  if (isLoading) {
     return <div className="min-h-screen grid place-items-center text-sm text-muted-foreground">Carregando…</div>;
   }
   if (!session) return null;

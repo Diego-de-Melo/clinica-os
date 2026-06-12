@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   classifyClinic,
   countClinicsByLifecycle,
@@ -13,7 +13,6 @@ import {
 } from "@/lib/clinics.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/use-session";
-import { requireSuperAdminSession } from "@/lib/route-auth";
 import { APP_NAME } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,10 +45,6 @@ import {
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/master-admin")({
-  beforeLoad: async () => {
-    const session = await requireSuperAdminSession();
-    return { session };
-  },
   head: () => ({
     meta: [{ title: `Master Admin — ${APP_NAME}` }, { name: "robots", content: "noindex, nofollow" }],
   }),
@@ -58,9 +53,7 @@ export const Route = createFileRoute("/master-admin")({
 
 function SuperAdminPage() {
   const navigate = useNavigate();
-  const { session: routeSession } = Route.useRouteContext();
-  const { data: liveSession, isLoading } = useSession();
-  const session = liveSession ?? routeSession;
+  const { data: session, isLoading } = useSession();
   const qc = useQueryClient();
   const listFn = useServerFn(listClinics);
   const updateFn = useServerFn(updateClinic);
@@ -106,10 +99,16 @@ function SuperAdminPage() {
     navigate({ to: "/login" });
   }
 
-  if (isLoading && !session) {
+  useEffect(() => {
+    if (!isLoading && (!session || session.role !== "super_admin")) {
+      navigate({ to: "/login" });
+    }
+  }, [isLoading, session, navigate]);
+
+  if (isLoading) {
     return <div className="min-h-screen grid place-items-center text-sm text-muted-foreground">Carregando…</div>;
   }
-  if (!session) return null;
+  if (!session || session.role !== "super_admin") return null;
 
   return (
     <div className="min-h-screen bg-background">
