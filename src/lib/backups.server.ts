@@ -2,6 +2,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { encryptBuffer } from "./backup-crypto.server";
 
 const BUCKET = "clinic-backups";
+const MAX_BACKUP_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
 
 export type BackupRunResult = {
   backupId: string;
@@ -46,6 +47,9 @@ export async function runBackupForClinic(
   };
 
   const plaintext = Buffer.from(JSON.stringify(payload), "utf8");
+  if (plaintext.byteLength > MAX_BACKUP_SIZE_BYTES) {
+    throw new Error("Backup excede o limite de 50 MB. Reduza os dados antes de continuar.");
+  }
   const { ciphertext, iv, authTag, checksum } = encryptBuffer(plaintext);
 
   // Próxima versão
@@ -119,7 +123,7 @@ export async function purgeExpiredBackups(clinicId: string, retentionDays: numbe
 export async function downloadAndDecrypt(backupId: string, clinicId: string): Promise<Buffer> {
   const { data: bk, error } = await supabaseAdmin
     .from("backups")
-    .select("object_path, iv, auth_tag, clinic_id")
+    .select("object_path, iv, auth_tag, checksum_sha256, clinic_id")
     .eq("id", backupId)
     .maybeSingle();
   if (error || !bk) throw new Error("Backup não encontrado");
@@ -135,7 +139,18 @@ export async function downloadAndDecrypt(backupId: string, clinicId: string): Pr
 
   const cipherBuf = Buffer.from(await file.arrayBuffer());
   const { decryptBuffer } = await import("./backup-crypto.server");
-  return decryptBuffer(cipherBuf, bk.iv, bk.auth_tag);
+  const plaintext = decryptBuffer(cipherBuf, bk.iv, bk.auth_tag);
+
+  // Verify checksum
+  if (bk.checksum_sha256) {
+    const { createHash } = await import("node:crypto");
+    const actual = createHash("sha256").update(plaintext).digest("hex");
+    if (actual !== bk.checksum_sha256) {
+      throw new Error("Backup corrompido: checksum não confere.");
+    }
+  }
+
+  return plaintext;
 }
 
 export async function createSignedTempDownload(
@@ -162,8 +177,14 @@ export async function createSignedTempDownload(
     });
   if (sigErr || !signed) {
     if (sigErr) console.error("[backup] sign url failed", sigErr);
+    // Cleanup tmp file on error
+    await supabaseAdmin.storage.from(BUCKET).remove([tmpPath]).catch(() => {});
     throw new Error("Não foi possível gerar o link de download.");
   }
+
+  // Cleanup plaintext tmp file immediately — signed URL is already valid for 15 min
+  // but the file shouldn't remain accessible in storage
+  await supabaseAdmin.storage.from(BUCKET).remove([tmpPath]).catch(() => {});
 
   return {
     url: signed.signedUrl,

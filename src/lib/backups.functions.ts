@@ -174,10 +174,12 @@ export const restoreBackup = createServerFn({ method: "POST" })
     const snapshot = JSON.parse(plaintext.toString("utf8")) as {
       patients: Array<Record<string, unknown>>;
       attendances: Array<Record<string, unknown>>;
+      consents: Array<Record<string, unknown>>;
     };
 
     let upPatients = 0;
     let upAttendances = 0;
+    let upConsents = 0;
 
     if (snapshot.patients?.length) {
       const rows = snapshot.patients.map((p) => ({ ...p, clinic_id: profile.clinic_id }));
@@ -201,13 +203,25 @@ export const restoreBackup = createServerFn({ method: "POST" })
       }
       upAttendances = rows.length;
     }
+    if (snapshot.consents?.length) {
+      const rows = snapshot.consents.map((c) => ({ ...c, clinic_id: profile.clinic_id }));
+      const { error } = await supabaseAdmin
+        .from("consents")
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .upsert(rows as any, { onConflict: "id" });
+      if (error) {
+        console.error("[backup.restore] consents upsert failed", error);
+        throw new Error("Falha ao restaurar consentimentos.");
+      }
+      upConsents = rows.length;
+    }
 
     await logAuditInternal(supabase, {
       action: "backup.restore",
       entity: "backups",
       recordId: data.id,
-      metadata: { upserted_patients: upPatients, upserted_attendances: upAttendances },
+      metadata: { upserted_patients: upPatients, upserted_attendances: upAttendances, upserted_consents: upConsents },
     });
 
-    return { upserted: { patients: upPatients, attendances: upAttendances } };
+    return { upserted: { patients: upPatients, attendances: upAttendances, consents: upConsents } };
   });
