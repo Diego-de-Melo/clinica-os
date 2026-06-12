@@ -1,10 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { listAuditLogs, listClinicsForFilter } from "@/lib/audit.functions";
 import { supabase } from "@/integrations/supabase/client";
-import { requireSuperAdminSession } from "@/lib/route-auth";
+import { useSession } from "@/hooks/use-session";
 import { APP_NAME } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,10 +15,6 @@ import {
 import { ArrowLeft, Download, LogOut, ShieldCheck } from "lucide-react";
 
 export const Route = createFileRoute("/master-admin/logs")({
-  beforeLoad: async () => {
-    const session = await requireSuperAdminSession();
-    return { session };
-  },
   head: () => ({
     meta: [{ title: `Logs — ${APP_NAME}` }, { name: "robots", content: "noindex, nofollow" }],
   }),
@@ -27,6 +23,7 @@ export const Route = createFileRoute("/master-admin/logs")({
 
 function LogsPage() {
   const navigate = useNavigate();
+  const { data: session, isLoading: loadingSession } = useSession();
   const listFn = useServerFn(listAuditLogs);
   const clinicsFn = useServerFn(listClinicsForFilter);
 
@@ -63,6 +60,17 @@ function LogsPage() {
     await supabase.auth.signOut();
     navigate({ to: "/login" });
   }
+
+  useEffect(() => {
+    if (!loadingSession && (!session || session.role !== "super_admin")) {
+      navigate({ to: "/login" });
+    }
+  }, [loadingSession, session, navigate]);
+
+  if (loadingSession) {
+    return <div className="min-h-screen grid place-items-center text-sm text-muted-foreground">Carregando…</div>;
+  }
+  if (!session || session.role !== "super_admin") return null;
 
   function exportCSV() {
     const rows = logs ?? [];
