@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { ActionCell, InlineAction } from "@/components/row-actions";
 import { Loader2, Plus, Search, Trash2, Upload } from "lucide-react";
 import { formatCPF } from "@/lib/cpf";
+import { formatCNPJ } from "@/lib/cnpj";
 
 export const Route = createFileRoute("/_app/pacientes/")({
   head: () => ({
@@ -33,6 +34,7 @@ type Patient = {
   id: string;
   name: string;
   cpf: string | null;
+  cnpj: string | null;
   father_name: string | null;
   father_cpf: string | null;
   mother_name: string | null;
@@ -88,6 +90,7 @@ function PacientesPage() {
             <TableRow>
               <TableHead>Nome</TableHead>
               <TableHead>CPF</TableHead>
+              <TableHead>CNPJ</TableHead>
               <TableHead>Pai</TableHead>
               <TableHead>Mãe</TableHead>
               <TableHead>Cadastro</TableHead>
@@ -95,9 +98,9 @@ function PacientesPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading && <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Carregando…</TableCell></TableRow>}
+            {isLoading && <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Carregando…</TableCell></TableRow>}
             {!isLoading && (rows ?? []).length === 0 && (
-              <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhum paciente.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhum paciente.</TableCell></TableRow>
             )}
             {((rows as Patient[] | undefined) ?? []).map((p) => (
               <TableRow key={p.id}>
@@ -107,6 +110,7 @@ function PacientesPage() {
                   </Link>
                 </TableCell>
                 <TableCell>{p.cpf ? formatCPF(p.cpf) : "—"}</TableCell>
+                <TableCell>{p.cnpj ? formatCNPJ(p.cnpj) : "—"}</TableCell>
                 <TableCell>{p.father_name ?? "—"}</TableCell>
                 <TableCell>{p.mother_name ?? "—"}</TableCell>
                 <TableCell className="text-muted-foreground">
@@ -138,6 +142,7 @@ function PacientesPage() {
 type PatientForm = {
   name: string;
   cpf: string;
+  cnpj: string;
   father_name: string;
   father_cpf: string;
   mother_name: string;
@@ -145,7 +150,7 @@ type PatientForm = {
 };
 
 const EMPTY_FORM: PatientForm = {
-  name: "", cpf: "",
+  name: "", cpf: "", cnpj: "",
   father_name: "", father_cpf: "",
   mother_name: "", mother_cpf: "",
 };
@@ -164,6 +169,11 @@ function PatientFields({ form, setForm }: {
         <Label>CPF</Label>
         <Input value={form.cpf} inputMode="numeric" maxLength={14} placeholder="000.000.000-00"
           onChange={(e) => setForm({ ...form, cpf: formatCPF(e.target.value) })} />
+      </div>
+      <div className="space-y-2">
+        <Label>CNPJ</Label>
+        <Input value={form.cnpj} inputMode="numeric" maxLength={18} placeholder="00.000.000/0000-00"
+          onChange={(e) => setForm({ ...form, cnpj: formatCNPJ(e.target.value) })} />
       </div>
       <div className="rounded-lg border p-3 space-y-3">
         <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Pai</div>
@@ -195,6 +205,7 @@ function toPayload(form: PatientForm) {
   return {
     name: form.name,
     cpf: form.cpf || null,
+    cnpj: form.cnpj || null,
     father_name: form.father_name || null,
     father_cpf: form.father_cpf || null,
     mother_name: form.mother_name || null,
@@ -260,6 +271,7 @@ function ImportCsvDialog({ onDone }: { onDone: () => void }) {
             .map((r) => ({
               name: (r.name || r.nome || "").trim(),
               cpf: formatCPF((r.cpf || "").trim()) || null,
+              cnpj: formatCNPJ((r.cnpj || "").trim()) || null,
               father_name: (r.father_name || r.pai || "").trim() || null,
               father_cpf: formatCPF((r.father_cpf || r.cpf_pai || "").trim()) || null,
               mother_name: (r.mother_name || r.mae || "").trim() || null,
@@ -298,7 +310,7 @@ function ImportCsvDialog({ onDone }: { onDone: () => void }) {
         <DialogHeader>
           <DialogTitle>Importar pacientes via CSV</DialogTitle>
           <DialogDescription>
-            Colunas: <code>name</code>/<code>nome</code>, <code>cpf</code>,
+            Colunas: <code>name</code>/<code>nome</code>, <code>cpf</code>, <code>cnpj</code>,
             {" "}<code>pai</code>, <code>cpf_pai</code>, <code>mae</code>, <code>cpf_mae</code>.
           </DialogDescription>
         </DialogHeader>

@@ -29,6 +29,7 @@ import { toast } from "sonner";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import type { AppRole } from "@/lib/auth-guards";
 import { formatCPF } from "@/lib/cpf";
+import { formatCNPJ } from "@/lib/cnpj";
 
 export const Route = createFileRoute("/_app/dashboard")({
   head: () => ({
@@ -75,6 +76,7 @@ type PatientLite = {
   id: string;
   name: string;
   cpf: string | null;
+  cnpj: string | null;
   father_name: string | null;
   father_cpf: string | null;
   mother_name: string | null;
@@ -84,10 +86,11 @@ type PatientLite = {
 function invoiceRecipient(row: { invoice_for: string; patient: PatientLite | null }) {
   const inv = row.invoice_for as InvoiceFor;
   const p = row.patient;
-  if (!p) return { name: "—", cpf: null as string | null };
-  if (inv === "father") return { name: p.father_name || "—", cpf: p.father_cpf };
-  if (inv === "mother") return { name: p.mother_name || "—", cpf: p.mother_cpf };
-  return { name: p.name, cpf: p.cpf };
+  if (!p) return { name: "—", cpf: null as string | null, cnpj: null as string | null };
+  if (inv === "father") return { name: p.father_name || "—", cpf: p.father_cpf, cnpj: null };
+  if (inv === "mother") return { name: p.mother_name || "—", cpf: p.mother_cpf, cnpj: null };
+  if (inv === "cnpj") return { name: p.name, cpf: null, cnpj: p.cnpj };
+  return { name: p.name, cpf: p.cpf, cnpj: null };
 }
 
 function DashboardPage() {
@@ -255,6 +258,7 @@ function DashboardPage() {
                         <div className="font-medium">{recipient.name}</div>
                         <div className="text-xs text-muted-foreground">
                           {INVOICE_FOR_LABEL[inv] ?? "—"}
+                          {recipient.cnpj ? ` · CNPJ: ${formatCNPJ(recipient.cnpj)}` : ""}
                           {recipient.cpf ? ` · CPF: ${formatCPF(recipient.cpf)}` : ""}
                         </div>
                       </Link>
@@ -416,10 +420,12 @@ function NewAttendanceDialog({ onCreated }: { onCreated: () => void }) {
                   {INVOICE_FOR_VALUES.map((v) => {
                     const disabled =
                       (v === "father" && !selectedPatient?.father_name) ||
-                      (v === "mother" && !selectedPatient?.mother_name);
+                      (v === "mother" && !selectedPatient?.mother_name) ||
+                      (v === "cnpj" && !selectedPatient?.cnpj);
                     const suffix =
                       v === "father" && selectedPatient?.father_name ? ` — ${selectedPatient.father_name}`
                       : v === "mother" && selectedPatient?.mother_name ? ` — ${selectedPatient.mother_name}`
+                      : v === "cnpj" && selectedPatient?.cnpj ? ` — ${formatCNPJ(selectedPatient.cnpj)}`
                       : v === "patient" && selectedPatient ? ` — ${selectedPatient.name}`
                       : "";
                     return (

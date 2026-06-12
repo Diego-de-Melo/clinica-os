@@ -29,13 +29,14 @@ export const PAYMENT_METHODS = [
 ] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
-export const INVOICE_FOR_VALUES = ["patient", "father", "mother"] as const;
+export const INVOICE_FOR_VALUES = ["patient", "father", "mother", "cnpj"] as const;
 export type InvoiceFor = (typeof INVOICE_FOR_VALUES)[number];
 
 export const INVOICE_FOR_LABEL: Record<InvoiceFor, string> = {
   patient: "Paciente",
   father: "Pai",
   mother: "Mãe",
+  cnpj: "CNPJ",
 };
 
 export function allowedTransitions(
@@ -68,7 +69,7 @@ export const listAttendances = createServerFn({ method: "GET" })
     const { supabase } = context;
     const { data, error } = await supabase
       .from("attendances")
-      .select("*, patient:patients(id,name,cpf,father_name,father_cpf,mother_name,mother_cpf)")
+      .select("*, patient:patients(id,name,cpf,cnpj,father_name,father_cpf,mother_name,mother_cpf)")
       .order("created_at", { ascending: false })
       .limit(500);
     if (error) throwDatabaseError(error);
