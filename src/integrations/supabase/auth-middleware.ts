@@ -4,7 +4,16 @@ import { getRequest } from '@tanstack/react-start/server'
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from './types'
 
-
+function parseCookies(cookieHeader: string): Record<string, string> {
+  const cookies: Record<string, string> = {};
+  for (const pair of cookieHeader.split(';')) {
+    const [name, ...rest] = pair.split('=');
+    if (name) {
+      cookies[name.trim()] = rest.join('=').trim();
+    }
+  }
+  return cookies;
+}
 
 export const requireSupabaseAuth = createMiddleware({ type: 'function' }).server(
   async ({ next }) => {
@@ -28,19 +37,41 @@ export const requireSupabaseAuth = createMiddleware({ type: 'function' }).server
       throw new Error('Unauthorized: No request headers available');
     }
 
+    // Try Authorization header first (client-side RPC calls)
     const authHeader = request.headers.get('authorization');
+    let token: string | null = null;
 
-    if (!authHeader) {
-      throw new Error('Unauthorized: No authorization header provided');
+    if (authHeader?.startsWith('Bearer ')) {
+      token = authHeader.replace('Bearer ', '');
     }
 
-    if (!authHeader.startsWith('Bearer ')) {
-      throw new Error('Unauthorized: Only Bearer tokens are supported');
-    }
-
-    const token = authHeader.replace('Bearer ', '');
+    // Fallback: read from cookie (SSR page refresh)
     if (!token) {
-      throw new Error('Unauthorized: No token provided');
+      const cookieHeader = request.headers.get('cookie') ?? '';
+      const cookies = parseCookies(cookieHeader);
+      // @supabase/ssr stores the session in a cookie named sb-<project-ref>-auth-token
+      // or as individual access_token/refresh_token cookies
+      token = cookies['sb-access-token'] ?? null;
+
+      // Also try the combined cookie format
+      if (!token) {
+        const projectRef = SUPABASE_URL.match(/https?:\/\/([a-z0-9]+)\./)?.[1];
+        if (projectRef) {
+          const combinedCookie = cookies[`sb-${projectRef}-auth-token`];
+          if (combinedCookie) {
+            try {
+              const decoded = JSON.parse(atob(combinedCookie));
+              token = decoded.access_token ?? null;
+            } catch {
+              // ignore parse errors
+            }
+          }
+        }
+      }
+    }
+
+    if (!token) {
+      throw new Error('Unauthorized: No authorization header provided');
     }
 
     const supabase = createClient<Database>(
