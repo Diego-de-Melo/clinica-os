@@ -132,3 +132,63 @@ export const listClinicsForFilter = createServerFn({ method: "GET" })
     if (error) throwDatabaseError(error);
     return data ?? [];
   });
+
+const RETENTION_OPTIONS = [90, 180, 365, 730] as const;
+
+export const getAuditRetentionConfig = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    const profile = await requireClinicProfile(supabase, userId);
+    assertSuperAdminRole(profile.role);
+
+    const { data, error } = await supabase
+      .from("audit_logs")
+      .select("id")
+      .limit(1);
+    if (error) throwDatabaseError(error);
+
+    const { count } = await supabase
+      .from("audit_logs")
+      .select("id", { count: "exact", head: true });
+
+    return { totalLogs: count ?? 0, retentionOptions: RETENTION_OPTIONS };
+  });
+
+export const purgeOldAuditLogs = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z.object({ retentionDays: z.number().int().min(30).max(730) }).parse(input),
+  )
+  .handler(async ({ context, data }) => {
+    const { supabase, userId } = context;
+    const profile = await requireClinicProfile(supabase, userId);
+    assertSuperAdminRole(profile.role);
+
+    const cutoff = new Date(Date.now() - data.retentionDays * 86_400_000).toISOString();
+
+    const { count: beforeCount } = await supabase
+      .from("audit_logs")
+      .select("id", { count: "exact", head: true });
+
+    const { error, count } = await supabase
+      .from("audit_logs")
+      .delete()
+      .lt("created_at", cutoff);
+
+    if (error) {
+      console.error("[audit] purge failed", error);
+      throw new Error("Falha ao limpar logs antigos.");
+    }
+
+    const deleted = (beforeCount ?? 0) - (count ?? 0);
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await supabaseAdmin.rpc("log_audit", {
+      _action: "audit.purge",
+      _entity: "audit_logs",
+      _metadata: { retention_days: data.retentionDays, deleted_count: deleted, cutoff } as never,
+    });
+
+    return { deleted, cutoff };
+  });

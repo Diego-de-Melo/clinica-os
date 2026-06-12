@@ -1,8 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
-import { listAuditLogs, listClinicsForFilter } from "@/lib/audit.functions";
+import { listAuditLogs, listClinicsForFilter, purgeOldAuditLogs } from "@/lib/audit.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/use-session";
 import { APP_NAME } from "@/lib/constants";
@@ -12,7 +12,11 @@ import { Label } from "@/components/ui/label";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { ArrowLeft, Download, LogOut, ShieldCheck } from "lucide-react";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+} from "@/components/ui/dialog";
+import { ArrowLeft, Download, LogOut, ShieldCheck, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/master-admin/logs")({
   head: () => ({
@@ -24,8 +28,10 @@ export const Route = createFileRoute("/master-admin/logs")({
 function LogsPage() {
   const navigate = useNavigate();
   const { data: session, isLoading: loadingSession } = useSession();
+  const qc = useQueryClient();
   const listFn = useServerFn(listAuditLogs);
   const clinicsFn = useServerFn(listClinicsForFilter);
+  const purgeFn = useServerFn(purgeOldAuditLogs);
 
   const [clinicId, setClinicId] = useState<string>("");
   const [action, setAction] = useState("");
@@ -33,6 +39,8 @@ function LogsPage() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [limit, setLimit] = useState(100);
+  const [purgeOpen, setPurgeOpen] = useState(false);
+  const [purgeDays, setPurgeDays] = useState(365);
 
   const { data: clinics } = useQuery({
     queryKey: ["clinics-filter"],
@@ -100,6 +108,16 @@ function LogsPage() {
     a.click();
     URL.revokeObjectURL(url);
   }
+
+  const purgeMutation = useMutation({
+    mutationFn: (retentionDays: number) => purgeFn({ data: { retentionDays } }),
+    onSuccess: (r) => {
+      toast.success(`${r.deleted} logs antigos removidos`);
+      setPurgeOpen(false);
+      qc.invalidateQueries({ queryKey: ["audit-logs"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Erro ao limpar logs"),
+  });
 
   return (
     <div className="min-h-screen bg-background">
@@ -175,6 +193,9 @@ function LogsPage() {
             <Button variant="outline" size="sm" onClick={exportCSV} disabled={!logs?.length}>
               <Download className="h-4 w-4" /> Exportar CSV
             </Button>
+            <Button variant="outline" size="sm" onClick={() => setPurgeOpen(true)}>
+              <Trash2 className="h-4 w-4" /> Limpar antigos
+            </Button>
             <span className="ml-auto text-xs text-muted-foreground self-center">
               {logs?.length ?? 0} registro(s)
             </span>
@@ -218,6 +239,41 @@ function LogsPage() {
           </Table>
         </div>
       </main>
+
+      <Dialog open={purgeOpen} onOpenChange={setPurgeOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Limpar logs antigos</DialogTitle>
+            <DialogDescription>
+              Remover logs de auditoria mais antigos que o período selecionado.
+              Esta ação é irreversível.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label>Manter logs dos últimos</Label>
+            <select
+              value={purgeDays}
+              onChange={(e) => setPurgeDays(Number(e.target.value))}
+              className="h-9 w-full rounded-md border bg-background px-2 text-sm"
+            >
+              <option value={90}>90 dias</option>
+              <option value={180}>6 meses</option>
+              <option value={365}>1 ano</option>
+              <option value={730}>2 anos</option>
+            </select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPurgeOpen(false)}>Cancelar</Button>
+            <Button
+              variant="destructive"
+              disabled={purgeMutation.isPending}
+              onClick={() => purgeMutation.mutate(purgeDays)}
+            >
+              {purgeMutation.isPending ? "Limpando…" : "Confirmar limpeza"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
