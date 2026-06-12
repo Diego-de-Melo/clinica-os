@@ -37,6 +37,7 @@ function LogsPage() {
   const { data: clinics } = useQuery({
     queryKey: ["clinics-filter"],
     queryFn: () => clinicsFn(),
+    enabled: !!session,
   });
 
   const filters = useMemo(
@@ -54,6 +55,7 @@ function LogsPage() {
   const { data: logs, isLoading, refetch } = useQuery({
     queryKey: ["audit-logs", filters],
     queryFn: () => listFn({ data: filters }),
+    enabled: !!session,
   });
 
   async function logout() {
