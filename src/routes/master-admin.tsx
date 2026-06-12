@@ -117,9 +117,9 @@ function SuperAdminPage() {
         <span className="font-semibold tracking-tight">Master Admin</span>
         <span className="text-sm text-muted-foreground">— {APP_NAME}</span>
         <div className="ml-auto flex items-center gap-3">
-          <Link to="/master-admin/logs">
+          <a href="/master-admin/logs">
             <Button variant="ghost" size="sm">Logs</Button>
-          </Link>
+          </a>
           <span className="text-xs text-muted-foreground hidden sm:inline">{session.email}</span>
           <Button variant="ghost" size="sm" onClick={logout}>
             <LogOut className="h-4 w-4" /> Sair
