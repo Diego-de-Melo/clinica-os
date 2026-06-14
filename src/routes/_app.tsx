@@ -29,14 +29,14 @@ const ROLE_LABELS: Record<string, string> = {
 
 function AppLayout() {
   const navigate = useNavigate();
-  const { data: session, isLoading } = useSession();
+  const { data: session, isLoading, isFetching } = useSession();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   useEffect(() => {
-    if (!isLoading && !session) {
+    if (!isLoading && !isFetching && !session) {
       navigate({ to: "/login" });
     }
-  }, [isLoading, session, navigate]);
+  }, [isLoading, isFetching, session, navigate]);
 
   if (isLoading) {
     return <div className="min-h-screen grid place-items-center text-sm text-muted-foreground">Carregando…</div>;

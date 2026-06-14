@@ -53,7 +53,7 @@ export const Route = createFileRoute("/master-admin")({
 
 function SuperAdminPage() {
   const navigate = useNavigate();
-  const { data: session, isLoading } = useSession();
+  const { data: session, isLoading, isFetching } = useSession();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const qc = useQueryClient();
   const listFn = useServerFn(listClinics);
@@ -101,10 +101,10 @@ function SuperAdminPage() {
   }
 
   useEffect(() => {
-    if (!isLoading && (!session || session.role !== "super_admin")) {
+    if (!isLoading && !isFetching && (!session || session.role !== "super_admin")) {
       navigate({ to: "/login" });
     }
-  }, [isLoading, session, navigate]);
+  }, [isLoading, isFetching, session, navigate]);
 
   if (isLoading) {
     return <div className="min-h-screen grid place-items-center text-sm text-muted-foreground">Carregando…</div>;
