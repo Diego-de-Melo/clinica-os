@@ -69,7 +69,7 @@ export const listAttendances = createServerFn({ method: "GET" })
     const { supabase } = context;
     const { data, error } = await supabase
       .from("attendances")
-      .select("*, patient:patients(id,name,cpf,cnpj,father_name,father_cpf,mother_name,mother_cpf)")
+      .select("*, patient:patients(id,name,cpf,cnpj,company_name,father_name,father_cpf,mother_name,mother_cpf)")
       .order("created_at", { ascending: false })
       .limit(500);
     if (error) throwDatabaseError(error);

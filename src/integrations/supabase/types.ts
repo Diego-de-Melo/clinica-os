@@ -264,6 +264,7 @@ export type Database = {
       patients: {
         Row: {
           clinic_id: string
+          company_name: string | null
           cnpj: string | null
           cpf: string | null
           created_at: string
@@ -279,6 +280,7 @@ export type Database = {
         }
         Insert: {
           clinic_id: string
+          company_name?: string | null
           cnpj?: string | null
           cpf?: string | null
           created_at?: string
@@ -294,6 +296,7 @@ export type Database = {
         }
         Update: {
           clinic_id?: string
+          company_name?: string | null
           cnpj?: string | null
           cpf?: string | null
           created_at?: string

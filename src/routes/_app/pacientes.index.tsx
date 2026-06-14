@@ -35,6 +35,7 @@ type Patient = {
   name: string;
   cpf: string | null;
   cnpj: string | null;
+  company_name: string | null;
   father_name: string | null;
   father_cpf: string | null;
   mother_name: string | null;
@@ -91,6 +92,7 @@ function PacientesPage() {
               <TableHead>Nome</TableHead>
               <TableHead>CPF</TableHead>
               <TableHead>CNPJ</TableHead>
+              <TableHead>Empresa</TableHead>
               <TableHead>Pai</TableHead>
               <TableHead>Mãe</TableHead>
               <TableHead>Cadastro</TableHead>
@@ -98,9 +100,9 @@ function PacientesPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading && <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Carregando…</TableCell></TableRow>}
+            {isLoading && <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Carregando…</TableCell></TableRow>}
             {!isLoading && (rows ?? []).length === 0 && (
-              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhum paciente.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhum paciente.</TableCell></TableRow>
             )}
             {((rows as Patient[] | undefined) ?? []).map((p) => (
               <TableRow key={p.id}>
@@ -111,6 +113,7 @@ function PacientesPage() {
                 </TableCell>
                 <TableCell>{p.cpf ? formatCPF(p.cpf) : "—"}</TableCell>
                 <TableCell>{p.cnpj ? formatCNPJ(p.cnpj) : "—"}</TableCell>
+                <TableCell>{p.company_name ?? "—"}</TableCell>
                 <TableCell>{p.father_name ?? "—"}</TableCell>
                 <TableCell>{p.mother_name ?? "—"}</TableCell>
                 <TableCell className="text-muted-foreground">
@@ -143,6 +146,7 @@ type PatientForm = {
   name: string;
   cpf: string;
   cnpj: string;
+  company_name: string;
   father_name: string;
   father_cpf: string;
   mother_name: string;
@@ -150,7 +154,7 @@ type PatientForm = {
 };
 
 const EMPTY_FORM: PatientForm = {
-  name: "", cpf: "", cnpj: "",
+  name: "", cpf: "", cnpj: "", company_name: "",
   father_name: "", father_cpf: "",
   mother_name: "", mother_cpf: "",
 };
@@ -174,6 +178,11 @@ function PatientFields({ form, setForm }: {
         <Label>CNPJ</Label>
         <Input value={form.cnpj} inputMode="numeric" maxLength={18} placeholder="00.000.000/0000-00"
           onChange={(e) => setForm({ ...form, cnpj: formatCNPJ(e.target.value) })} />
+      </div>
+      <div className="space-y-2">
+        <Label>Nome da empresa</Label>
+        <Input value={form.company_name} maxLength={120} placeholder="Razão social"
+          onChange={(e) => setForm({ ...form, company_name: e.target.value })} />
       </div>
       <div className="rounded-lg border p-3 space-y-3">
         <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Pai</div>
@@ -206,6 +215,7 @@ function toPayload(form: PatientForm) {
     name: form.name,
     cpf: form.cpf || null,
     cnpj: form.cnpj || null,
+    company_name: form.company_name || null,
     father_name: form.father_name || null,
     father_cpf: form.father_cpf || null,
     mother_name: form.mother_name || null,
@@ -272,6 +282,7 @@ function ImportCsvDialog({ onDone }: { onDone: () => void }) {
               name: (r.name || r.nome || "").trim(),
               cpf: formatCPF((r.cpf || "").trim()) || null,
               cnpj: formatCNPJ((r.cnpj || "").trim()) || null,
+              company_name: (r.company_name || r.empresa || "").trim() || null,
               father_name: (r.father_name || r.pai || "").trim() || null,
               father_cpf: formatCPF((r.father_cpf || r.cpf_pai || "").trim()) || null,
               mother_name: (r.mother_name || r.mae || "").trim() || null,
@@ -310,7 +321,7 @@ function ImportCsvDialog({ onDone }: { onDone: () => void }) {
         <DialogHeader>
           <DialogTitle>Importar pacientes via CSV</DialogTitle>
           <DialogDescription>
-            Colunas: <code>name</code>/<code>nome</code>, <code>cpf</code>, <code>cnpj</code>,
+            Colunas: <code>name</code>/<code>nome</code>, <code>cpf</code>, <code>cnpj</code>, <code>company_name</code>/<code>empresa</code>,
             {" "}<code>pai</code>, <code>cpf_pai</code>, <code>mae</code>, <code>cpf_mae</code>.
           </DialogDescription>
         </DialogHeader>

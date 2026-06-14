@@ -77,6 +77,7 @@ type PatientLite = {
   name: string;
   cpf: string | null;
   cnpj: string | null;
+  company_name: string | null;
   father_name: string | null;
   father_cpf: string | null;
   mother_name: string | null;
@@ -86,11 +87,11 @@ type PatientLite = {
 function invoiceRecipient(row: { invoice_for: string; patient: PatientLite | null }) {
   const inv = row.invoice_for as InvoiceFor;
   const p = row.patient;
-  if (!p) return { name: "—", cpf: null as string | null, cnpj: null as string | null };
-  if (inv === "father") return { name: p.father_name || "—", cpf: p.father_cpf, cnpj: null };
-  if (inv === "mother") return { name: p.mother_name || "—", cpf: p.mother_cpf, cnpj: null };
-  if (inv === "cnpj") return { name: p.name, cpf: null, cnpj: p.cnpj };
-  return { name: p.name, cpf: p.cpf, cnpj: null };
+  if (!p) return { name: "—", cpf: null as string | null, cnpj: null as string | null, company_name: null as string | null };
+  if (inv === "father") return { name: p.father_name || "—", cpf: p.father_cpf, cnpj: null, company_name: null };
+  if (inv === "mother") return { name: p.mother_name || "—", cpf: p.mother_cpf, cnpj: null, company_name: null };
+  if (inv === "cnpj") return { name: p.company_name || p.name, cpf: null, cnpj: p.cnpj, company_name: p.company_name };
+  return { name: p.name, cpf: p.cpf, cnpj: null, company_name: null };
 }
 
 function DashboardPage() {
@@ -260,6 +261,7 @@ function DashboardPage() {
                           {INVOICE_FOR_LABEL[inv] ?? "—"}
                           {recipient.cnpj ? ` · CNPJ: ${formatCNPJ(recipient.cnpj)}` : ""}
                           {recipient.cpf ? ` · CPF: ${formatCPF(recipient.cpf)}` : ""}
+                          {recipient.company_name && recipient.cnpj ? ` · ${recipient.company_name}` : ""}
                         </div>
                       </Link>
                     ) : "—"}

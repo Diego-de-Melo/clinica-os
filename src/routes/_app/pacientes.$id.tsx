@@ -99,6 +99,7 @@ function PatientDetail() {
         <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
           <Field label="CPF" value={formatCPF(data.patient.cpf)} />
           <Field label="CNPJ" value={formatCNPJ(data.patient.cnpj)} />
+          <Field label="Empresa" value={data.patient.company_name} />
           <Field label="Cadastro" value={new Date(data.patient.created_at).toLocaleDateString("pt-BR")} />
           <div />
           <Field label="Pai" value={data.patient.father_name} />
@@ -154,6 +155,7 @@ function PatientDetail() {
                   <TableCell>
                     <div>{inv ? INVOICE_FOR_LABEL[inv] : "—"}</div>
                     {recipientCnpj && <div className="text-xs text-muted-foreground">CNPJ: {formatCNPJ(recipientCnpj)}</div>}
+                    {inv === "cnpj" && data.patient.company_name && <div className="text-xs text-muted-foreground">{data.patient.company_name}</div>}
                     {recipientCpf && <div className="text-xs text-muted-foreground">CPF: {formatCPF(recipientCpf)}</div>}
                   </TableCell>
                   <TableCell>
@@ -242,7 +244,7 @@ function StatusBadge({ status }: { status: string }) {
 function EditPatientDialog({
   patient, onClose, onDone,
 }: {
-  patient: { id: string; name: string; cpf: string | null; cnpj: string | null; father_name: string | null; father_cpf: string | null; mother_name: string | null; mother_cpf: string | null };
+  patient: { id: string; name: string; cpf: string | null; cnpj: string | null; company_name: string | null; father_name: string | null; father_cpf: string | null; mother_name: string | null; mother_cpf: string | null };
   onClose: () => void; onDone: () => void;
 }) {
   const updFn = useServerFn(updatePatient);
@@ -250,6 +252,7 @@ function EditPatientDialog({
     name: patient.name,
     cpf: formatCPF(patient.cpf),
     cnpj: formatCNPJ(patient.cnpj),
+    company_name: patient.company_name ?? "",
     father_name: patient.father_name ?? "",
     father_cpf: formatCPF(patient.father_cpf),
     mother_name: patient.mother_name ?? "",
@@ -262,6 +265,7 @@ function EditPatientDialog({
         name: form.name.trim(),
         cpf: form.cpf.trim() || null,
         cnpj: form.cnpj.trim() || null,
+        company_name: form.company_name.trim() || null,
         father_name: form.father_name.trim() || null,
         father_cpf: form.father_cpf.trim() || null,
         mother_name: form.mother_name.trim() || null,
@@ -279,6 +283,7 @@ function EditPatientDialog({
           <div className="space-y-2"><Label>Nome</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required minLength={2} /></div>
           <div className="space-y-2"><Label>CPF</Label><Input value={form.cpf} inputMode="numeric" maxLength={14} placeholder="000.000.000-00" onChange={(e) => setForm({ ...form, cpf: formatCPF(e.target.value) })} /></div>
           <div className="space-y-2"><Label>CNPJ</Label><Input value={form.cnpj} inputMode="numeric" maxLength={18} placeholder="00.000.000/0000-00" onChange={(e) => setForm({ ...form, cnpj: formatCNPJ(e.target.value) })} /></div>
+          <div className="space-y-2"><Label>Nome da empresa</Label><Input value={form.company_name} maxLength={120} placeholder="Razão social" onChange={(e) => setForm({ ...form, company_name: e.target.value })} /></div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2"><Label>Pai</Label><Input value={form.father_name} onChange={(e) => setForm({ ...form, father_name: e.target.value })} /></div>
             <div className="space-y-2"><Label>CPF do pai</Label><Input value={form.father_cpf} inputMode="numeric" maxLength={14} placeholder="000.000.000-00" onChange={(e) => setForm({ ...form, father_cpf: formatCPF(e.target.value) })} /></div>

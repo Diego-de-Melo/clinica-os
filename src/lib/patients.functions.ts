@@ -53,6 +53,7 @@ const patientInput = z.object({
   name: z.string().trim().min(2).max(120),
   cpf: z.string().trim().max(20).nullable().optional(),
   cnpj: z.string().trim().max(20).nullable().optional(),
+  company_name: z.string().trim().max(120).nullable().optional(),
   father_name: z.string().trim().max(120).nullable().optional(),
   father_cpf: z.string().trim().max(20).nullable().optional(),
   mother_name: z.string().trim().max(120).nullable().optional(),
