@@ -4,22 +4,40 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { requireProfile, assertSuperAdminRole } from "@/lib/auth-guards";
 import { throwDatabaseError } from "@/lib/safe-errors";
+import type { Json } from "@/integrations/supabase/types";
 
-const SENSITIVE_KEYS = new Set(["cpf", "cnpj", "password", "senha", "token", "secret", "key"]);
+const SENSITIVE_KEYS = new Set([
+  "cpf",
+  "cnpj",
+  "password",
+  "senha",
+  "token",
+  "secret",
+  "key",
+  "father_name",
+  "father_cpf",
+  "mother_name",
+  "mother_cpf",
+  "responsible_name",
+  "responsible_cpf",
+  "company_name",
+]);
 
-function sanitizeMetadata(meta: Record<string, unknown> | null): Record<string, unknown> | null {
-  if (!meta) return null;
+function redactMetadata(meta: Json | null): Json | null {
+  if (!meta || typeof meta !== "object" || Array.isArray(meta)) return meta;
   const clean: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(meta)) {
     if (SENSITIVE_KEYS.has(k.toLowerCase())) {
       clean[k] = "[REDACTED]";
+    } else if (k.toLowerCase() === "name" && typeof v === "string") {
+      clean[k] = "[REDACTED]";
     } else if (typeof v === "string" && /\d{3}\.\d{3}\.\d{3}-\d{2}/.test(v)) {
-      clean[k] = v.replace(/\d{3}\.\d{3}\.\d{3}-\d{2}/g, "***.***.***-**");
+      clean[k] = "[REDACTED]";
     } else {
       clean[k] = v;
     }
   }
-  return clean;
+  return clean as Json;
 }
 
 const inputSchema = z.object({
@@ -51,7 +69,7 @@ export const logAudit = createServerFn({ method: "POST" })
       _action: data.action,
       _entity: data.entity ?? undefined,
       _record_id: data.recordId ?? undefined,
-      _metadata: sanitizeMetadata(data.metadata ?? null) as never,
+      _metadata: redactMetadata((data.metadata ?? null) as Json) as never,
       _ip: ip ?? undefined,
       _user_agent: ua ?? undefined,
     });
@@ -112,6 +130,7 @@ export const listAuditLogs = createServerFn({ method: "GET" })
       ...l,
       user_email: l.user_id ? (emailMap.get(l.user_id) ?? null) : null,
       clinic_name: l.clinic_id ? (clinicMap.get(l.clinic_id) ?? null) : null,
+      metadata: profile.role === "super_admin" ? redactMetadata(l.metadata) : l.metadata,
     }));
 
     if (data.userEmail) {
