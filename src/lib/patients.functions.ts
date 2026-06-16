@@ -44,6 +44,7 @@ export const getPatient = createServerFn({ method: "GET" })
       .from("attendances")
       .select("*")
       .eq("patient_id", data.id)
+      .is("deleted_at", null)
       .order("date", { ascending: false });
 
     return { patient, attendances: attendances ?? [] };
