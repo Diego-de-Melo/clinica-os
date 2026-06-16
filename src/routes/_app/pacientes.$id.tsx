@@ -14,6 +14,7 @@ import { APP_NAME } from "@/lib/constants";
 import { ArrowLeft, Pencil, Plus, Trash2, Eye, Loader2 } from "lucide-react";
 import { formatCPF } from "@/lib/cpf";
 import { formatCNPJ } from "@/lib/cnpj";
+import { formatDateBR } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -149,7 +150,7 @@ function PatientDetail() {
               const recipientCnpj = inv === "cnpj" ? data.patient.cnpj : null;
               return (
                 <TableRow key={a.id}>
-                  <TableCell>{new Date(a.date).toLocaleDateString("pt-BR")}</TableCell>
+                  <TableCell>{formatDateBR(a.date)}</TableCell>
                   <TableCell>{Number(a.value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</TableCell>
                   <TableCell>{a.payment_method ?? "—"}</TableCell>
                   <TableCell>
@@ -413,7 +414,7 @@ function ViewAttendanceDialog({ attendance, onClose }: { attendance: AttendanceR
       <DialogContent>
         <DialogHeader><DialogTitle>Atendimento</DialogTitle></DialogHeader>
         <div className="space-y-2 text-sm">
-          <div><span className="text-muted-foreground">Data:</span> {new Date(attendance.date).toLocaleDateString("pt-BR")}</div>
+          <div><span className="text-muted-foreground">Data:</span> {formatDateBR(attendance.date)}</div>
           <div><span className="text-muted-foreground">Valor:</span> {Number(attendance.value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</div>
           <div><span className="text-muted-foreground">Forma de pagamento:</span> {attendance.payment_method ?? "—"}</div>
           <div><span className="text-muted-foreground">Status:</span> {attendance.status}</div>

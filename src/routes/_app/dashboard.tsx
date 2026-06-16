@@ -8,6 +8,7 @@ import {
   type AttendanceStatus, type InvoiceFor, type PaymentMethod,
 } from "@/lib/attendances.functions";
 import { listPatients } from "@/lib/patients.functions";
+import { formatDateBR } from "@/lib/utils";
 import { useSession } from "@/hooks/use-session";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -266,7 +267,7 @@ function DashboardPage() {
                       </Link>
                     ) : "—"}
                   </TableCell>
-                  <TableCell>{new Date(r.date).toLocaleDateString("pt-BR")}</TableCell>
+                  <TableCell>{formatDateBR(r.date)}</TableCell>
                   <TableCell>{Number(r.value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</TableCell>
                   <TableCell className="text-muted-foreground">{r.payment_method ?? "—"}</TableCell>
                   <TableCell>
