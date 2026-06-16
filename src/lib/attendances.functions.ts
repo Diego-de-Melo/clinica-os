@@ -7,7 +7,8 @@ import {
   requireClinicProfile,
   type AppRole,
 } from "@/lib/auth-guards";
-const logAuditInternal: typeof import("@/lib/audit.server").logAuditInternal = async (...args) => (await import("@/lib/audit.server")).logAuditInternal(...args);
+const logAuditInternal: typeof import("@/lib/audit.server").logAuditInternal = async (...args) =>
+  (await import("@/lib/audit.server")).logAuditInternal(...args);
 import { throwDatabaseError } from "@/lib/safe-errors";
 
 export const ATTENDANCE_STATUSES = [
@@ -39,10 +40,7 @@ export const INVOICE_FOR_LABEL: Record<InvoiceFor, string> = {
   cnpj: "CNPJ",
 };
 
-export function allowedTransitions(
-  role: AppRole,
-  current: AttendanceStatus,
-): AttendanceStatus[] {
+export function allowedTransitions(role: AppRole, current: AttendanceStatus): AttendanceStatus[] {
   if (role === "contador") {
     if (current === "Pendente") return ["Emitido", "CPF Inválido"];
     if (current === "Emitido") return ["Pendente", "CPF Inválido"];
@@ -56,11 +54,11 @@ export function allowedTransitions(
 }
 
 export const STATUS_ACTION_LABEL: Record<AttendanceStatus, string> = {
-  "Pendente": "Reabrir",
+  Pendente: "Reabrir",
   "CPF Inválido": "CPF inválido",
-  "Corrigido": "Corrigir",
-  "Emitido": "Emitir",
-  "Cancelado": "Cancelar",
+  Corrigido: "Corrigir",
+  Emitido: "Emitir",
+  Cancelado: "Cancelar",
 };
 
 export const listAttendances = createServerFn({ method: "GET" })
@@ -69,7 +67,9 @@ export const listAttendances = createServerFn({ method: "GET" })
     const { supabase } = context;
     const { data, error } = await supabase
       .from("attendances")
-      .select("*, patient:patients(id,name,cpf,cnpj,company_name,father_name,father_cpf,mother_name,mother_cpf)")
+      .select(
+        "*, patient:patients(id,name,cpf,cnpj,company_name,father_name,father_cpf,mother_name,mother_cpf)",
+      )
       .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(500);
@@ -174,7 +174,8 @@ export const deleteAttendance = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const prof = await requireClinicProfile(supabase, userId);
     assertAttendanceWriter(prof.role, "Apenas Admin ou Operador podem remover atendimentos");
-    const { error } = await supabase.rpc("soft_delete_attendance", { p_id: data.id });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase.rpc as any)("soft_delete_attendance", { p_id: data.id });
     if (error) throwDatabaseError(error);
     await logAuditInternal(supabase, {
       action: "attendance.delete",
