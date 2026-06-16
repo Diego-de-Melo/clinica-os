@@ -2,7 +2,6 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { format } from "date-fns";
 import { getPatient, updatePatient } from "@/lib/patients.functions";
 import {
   createAttendance, updateAttendance, deleteAttendance,
@@ -315,7 +314,10 @@ function AttendanceDialog({
   const createFn = useServerFn(createAttendance);
   const updateFn = useServerFn(updateAttendance);
   const [form, setForm] = useState({
-    date: attendance?.date ?? format(new Date(), "yyyy-MM-dd"),
+    date: attendance?.date ?? (() => {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    })(),
     value: attendance ? String(attendance.value).replace(".", ",") : "",
     payment_method: (attendance?.payment_method ?? "") as PaymentMethod | "",
     status: (attendance?.status ?? "Pendente") as AttendanceStatus,

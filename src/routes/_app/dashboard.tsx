@@ -2,7 +2,6 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState, useMemo } from "react";
-import { format } from "date-fns";
 import {
   listAttendances, updateAttendanceStatus, createAttendance, deleteAttendance,
   allowedTransitions, INVOICE_FOR_LABEL, INVOICE_FOR_VALUES, PAYMENT_METHODS,
@@ -338,7 +337,10 @@ function NewAttendanceDialog({ onCreated }: { onCreated: () => void }) {
   });
 
   const [patientId, setPatientId] = useState("");
-  const [date, setDate] = useState(() => format(new Date(), "yyyy-MM-dd"));
+  const [date, setDate] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  });
   const [value, setValue] = useState("");
   const [method, setMethod] = useState<PaymentMethod | "">("");
   const [invoiceFor, setInvoiceFor] = useState<InvoiceFor>("patient");
