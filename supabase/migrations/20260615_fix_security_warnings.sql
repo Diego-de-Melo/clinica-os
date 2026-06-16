@@ -1,6 +1,22 @@
--- 1. Fix privilege escalation: handle_new_user only reads role from metadata
---    when created by service_role (admin panel). Self-registrations always get 'user'.
---    team.functions.ts calls ensureClinicProfile to upsert the correct role after creation.
+-- 1. Create the soft delete function
+CREATE OR REPLACE FUNCTION public.soft_delete_attendance(p_id uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  UPDATE public.attendances
+  SET deleted_at = now()
+  WHERE id = p_id;
+END;
+$$;
+
+-- 2. Restrict to authenticated only
+REVOKE ALL ON FUNCTION public.soft_delete_attendance(uuid) FROM public;
+GRANT EXECUTE ON FUNCTION public.soft_delete_attendance(uuid) TO authenticated;
+
+-- 3. Fix privilege escalation in handle_new_user
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -27,9 +43,4 @@ BEGIN
 END;
 $function$;
 
--- 2. Restrict soft_delete_attendance to authenticated users only
-REVOKE ALL ON FUNCTION public.soft_delete_attendance(uuid) FROM public;
-GRANT EXECUTE ON FUNCTION public.soft_delete_attendance(uuid) TO authenticated;
-
--- 3. Revoke direct execution of handle_new_user from non-admin roles
 REVOKE EXECUTE ON FUNCTION public.handle_new_user() FROM PUBLIC, anon, authenticated;
