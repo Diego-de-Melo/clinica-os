@@ -2,12 +2,10 @@ import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { requireClinicProfile, assertSuperAdminRole } from "@/lib/auth-guards";
+import { requireProfile, assertSuperAdminRole } from "@/lib/auth-guards";
 import { throwDatabaseError } from "@/lib/safe-errors";
 
-const SENSITIVE_KEYS = new Set([
-  "cpf", "cnpj", "password", "senha", "token", "secret", "key",
-]);
+const SENSITIVE_KEYS = new Set(["cpf", "cnpj", "password", "senha", "token", "secret", "key"]);
 
 function sanitizeMetadata(meta: Record<string, unknown> | null): Record<string, unknown> | null {
   if (!meta) return null;
@@ -36,7 +34,13 @@ export const logAudit = createServerFn({ method: "POST" })
   .inputValidator((input) => inputSchema.parse(input))
   .handler(async ({ context, data }) => {
     const { supabase } = context;
-    const req = (() => { try { return getRequest(); } catch { return null; } })();
+    const req = (() => {
+      try {
+        return getRequest();
+      } catch {
+        return null;
+      }
+    })();
     const ip =
       req?.headers.get("cf-connecting-ip") ??
       req?.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
@@ -55,7 +59,6 @@ export const logAudit = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-
 export const listAuditLogs = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
@@ -72,7 +75,7 @@ export const listAuditLogs = createServerFn({ method: "GET" })
   )
   .handler(async ({ context, data }) => {
     const { supabase, userId } = context;
-    const profile = await requireClinicProfile(supabase, userId);
+    const profile = await requireProfile(supabase, userId);
     assertSuperAdminRole(profile.role);
 
     let q = supabase
@@ -107,8 +110,8 @@ export const listAuditLogs = createServerFn({ method: "GET" })
 
     let enriched = logs.map((l) => ({
       ...l,
-      user_email: l.user_id ? emailMap.get(l.user_id) ?? null : null,
-      clinic_name: l.clinic_id ? clinicMap.get(l.clinic_id) ?? null : null,
+      user_email: l.user_id ? (emailMap.get(l.user_id) ?? null) : null,
+      clinic_name: l.clinic_id ? (clinicMap.get(l.clinic_id) ?? null) : null,
     }));
 
     if (data.userEmail) {
@@ -122,13 +125,10 @@ export const listClinicsForFilter = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
-    const profile = await requireClinicProfile(supabase, userId);
+    const profile = await requireProfile(supabase, userId);
     assertSuperAdminRole(profile.role);
 
-    const { data, error } = await supabase
-      .from("clinics")
-      .select("id, name")
-      .order("name");
+    const { data, error } = await supabase.from("clinics").select("id, name").order("name");
     if (error) throwDatabaseError(error);
     return data ?? [];
   });
@@ -139,13 +139,10 @@ export const getAuditRetentionConfig = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
-    const profile = await requireClinicProfile(supabase, userId);
+    const profile = await requireProfile(supabase, userId);
     assertSuperAdminRole(profile.role);
 
-    const { data, error } = await supabase
-      .from("audit_logs")
-      .select("id")
-      .limit(1);
+    const { data, error } = await supabase.from("audit_logs").select("id").limit(1);
     if (error) throwDatabaseError(error);
 
     const { count } = await supabase
@@ -162,7 +159,7 @@ export const purgeOldAuditLogs = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     const { supabase, userId } = context;
-    const profile = await requireClinicProfile(supabase, userId);
+    const profile = await requireProfile(supabase, userId);
     assertSuperAdminRole(profile.role);
 
     const cutoff = new Date(Date.now() - data.retentionDays * 86_400_000).toISOString();
@@ -171,10 +168,7 @@ export const purgeOldAuditLogs = createServerFn({ method: "POST" })
       .from("audit_logs")
       .select("id", { count: "exact", head: true });
 
-    const { error, count } = await supabase
-      .from("audit_logs")
-      .delete()
-      .lt("created_at", cutoff);
+    const { error, count } = await supabase.from("audit_logs").delete().lt("created_at", cutoff);
 
     if (error) {
       console.error("[audit] purge failed", error);

@@ -57,10 +57,28 @@ export function assertStaffRole(
   if (role !== "admin" && role !== "contador" && role !== "operador") throw new Error(message);
 }
 
+export async function requireProfile(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+): Promise<{ clinic_id: string | null; role: AppRole }> {
+  const { data: prof, error } = await supabase
+    .from("profiles")
+    .select("clinic_id, role")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (error) throwDatabaseError(error);
+  if (!prof) throw new Error("Perfil não encontrado");
+
+  return {
+    clinic_id: prof.clinic_id,
+    role: normalizeAppRole(prof.role),
+  };
+}
+
 export function assertSuperAdminRole(
   role: AppRole,
   message = "Apenas Super Admin pode realizar esta ação",
 ) {
   if (role !== "super_admin") throw new Error(message);
 }
-
