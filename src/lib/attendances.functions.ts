@@ -174,10 +174,7 @@ export const deleteAttendance = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const prof = await requireClinicProfile(supabase, userId);
     assertAttendanceWriter(prof.role, "Apenas Admin ou Operador podem remover atendimentos");
-    const { error } = await supabase
-      .from("attendances")
-      .update({ deleted_at: new Date().toISOString() })
-      .eq("id", data.id);
+    const { error } = await supabase.rpc("soft_delete_attendance", { p_id: data.id });
     if (error) throwDatabaseError(error);
     await logAuditInternal(supabase, {
       action: "attendance.delete",
