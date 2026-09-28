@@ -26,7 +26,7 @@ Este é um projeto pensado para rodar de verdade em produção: renderização s
 
 ## Demonstração
 
-**Em produção:** [https://clinica-os-mdm24.vercel.app](https://clinica-os-mdm24.vercel.app) — SSR na Vercel com banco Supabase (RLS).
+ — SSR na Vercel com banco Supabase (RLS).
 
 ![Landing page do ClinicaOS](./docs/images/app-landing.png)
 
