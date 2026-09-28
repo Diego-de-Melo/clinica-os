@@ -144,6 +144,7 @@ O projeto lê as variáveis abaixo (veja `.env.example`):
 | --- | --- |
 | `VITE_SUPABASE_URL` | URL do projeto Supabase usada pelo cliente do navegador |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | Chave pública usada no navegador (respeita RLS) |
+| `VITE_SUPPORT_EMAIL` | (Opcional) E-mail exibido nos botões de contato — sem valor, os botões ficam ocultos |
 | `SUPABASE_URL` | URL do Supabase usada no servidor (SSR e server functions) |
 | `SUPABASE_PUBLISHABLE_KEY` | Chave pública usada no servidor para validar a sessão |
 | `SUPABASE_SERVICE_ROLE_KEY` | Chave de service role, somente servidor — contorna RLS e autentica o webhook de backups |

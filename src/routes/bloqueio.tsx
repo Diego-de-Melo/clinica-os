@@ -2,13 +2,16 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/hooks/use-session";
-import { APP_NAME, buildWhatsAppActivationLink } from "@/lib/constants";
+import { APP_NAME, buildActivationMailto } from "@/lib/constants";
 import { supabase } from "@/integrations/supabase/client";
-import { AlertTriangle, MessageCircle, LogOut } from "lucide-react";
+import { AlertTriangle, Mail, LogOut } from "lucide-react";
 
 export const Route = createFileRoute("/bloqueio")({
   head: () => ({
-    meta: [{ title: `Conta bloqueada — ${APP_NAME}` }, { name: "robots", content: "noindex, nofollow" }],
+    meta: [
+      { title: `Conta bloqueada — ${APP_NAME}` },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
   }),
   component: BloqueioPage,
 });
@@ -25,10 +28,14 @@ function BloqueioPage() {
   }, [session, navigate]);
 
   if (isLoading || !session) {
-    return <div className="min-h-screen grid place-items-center text-sm text-muted-foreground">Carregando…</div>;
+    return (
+      <div className="min-h-screen grid place-items-center text-sm text-muted-foreground">
+        Carregando…
+      </div>
+    );
   }
 
-  const link = buildWhatsAppActivationLink(session.email);
+  const link = buildActivationMailto(session.email);
   const expired = session.expirationDate
     ? new Date(session.expirationDate).getTime() < Date.now()
     : false;
@@ -76,12 +83,19 @@ function BloqueioPage() {
           )}
         </div>
 
-        <a href={link} target="_blank" rel="noreferrer" className="mt-6 block">
-          <Button size="lg" className="w-full bg-[#25D366] hover:bg-[#1ebe57] text-white">
-            <MessageCircle className="h-5 w-5" />
-            Ativar Conta via WhatsApp
-          </Button>
-        </a>
+        {link ? (
+          <a href={link} className="mt-6 block">
+            <Button size="lg" className="w-full">
+              <Mail className="h-5 w-5" />
+              Solicitar ativação por e-mail
+            </Button>
+          </a>
+        ) : (
+          <p className="mt-6 text-sm text-muted-foreground">
+            Esta conta será liberada pelo administrador desta instância. Entre em contato com ele
+            para ativar seu acesso.
+          </p>
+        )}
 
         <button
           onClick={logout}

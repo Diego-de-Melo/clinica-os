@@ -144,6 +144,7 @@ The application reads the variables below (see `.env.example`):
 | --- | --- |
 | `VITE_SUPABASE_URL` | Supabase project URL used by the browser client |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | Public key used in the browser (RLS applies) |
+| `VITE_SUPPORT_EMAIL` | (Optional) E-mail shown on contact buttons — when unset, the buttons are hidden |
 | `SUPABASE_URL` | Supabase URL used on the server (SSR and server functions) |
 | `SUPABASE_PUBLISHABLE_KEY` | Public key used on the server to validate the session |
 | `SUPABASE_SERVICE_ROLE_KEY` | Service role key, server-only — bypasses RLS and authenticates the backup webhook |

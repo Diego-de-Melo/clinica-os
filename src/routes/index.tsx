@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
-import { Stethoscope, ShieldCheck, Users, FileCheck2, MessageCircle } from "lucide-react";
-import { APP_NAME, WHATSAPP_SUPPORT_NUMBER } from "@/lib/constants";
+import { Stethoscope, ShieldCheck, Users, FileCheck2, Mail } from "lucide-react";
+import { APP_NAME, buildSupportMailto } from "@/lib/constants";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -13,18 +13,24 @@ export const Route = createFileRoute("/")({
           "Substitua suas planilhas. Controle de pacientes, atendimentos e faturamento (Pendente, CPF Inválido, Corrigido, Emitido) em um sistema rápido e seguro.",
       },
       { property: "og:title", content: `${APP_NAME} — Gestão clínica e faturamento` },
-      { property: "og:description", content: "SaaS B2B para clínicas: pacientes, atendimentos e faturamento." },
+      {
+        property: "og:description",
+        content: "SaaS B2B para clínicas: pacientes, atendimentos e faturamento.",
+      },
     ],
   }),
   component: LandingPage,
 });
 
 function contactLink() {
-  const msg = `Olá, gostaria de conhecer o ${APP_NAME} para minha clínica.`;
-  return `https://wa.me/${WHATSAPP_SUPPORT_NUMBER}?text=${encodeURIComponent(msg)}`;
+  return buildSupportMailto(
+    "Contato pelo site",
+    `Olá, gostaria de conhecer o ${APP_NAME} para minha clínica.`,
+  );
 }
 
 function LandingPage() {
+  const contactHref = contactLink();
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <header className="border-b bg-white/80 backdrop-blur sticky top-0 z-10">
@@ -36,9 +42,13 @@ function LandingPage() {
             <span className="font-semibold tracking-tight">{APP_NAME}</span>
           </div>
           <div className="ml-auto flex items-center gap-2">
-            <a href={contactLink()} target="_blank" rel="noreferrer">
-              <Button variant="ghost" size="sm">Contato</Button>
-            </a>
+            {contactHref && (
+              <a href={contactHref}>
+                <Button variant="ghost" size="sm">
+                  Contato
+                </Button>
+              </a>
+            )}
             <Link to="/login">
               <Button size="sm">Entrar</Button>
             </Link>
@@ -56,32 +66,46 @@ function LandingPage() {
               Gestão de pacientes e faturamento, sem planilha.
             </h1>
             <p className="mt-5 text-lg text-slate-600 leading-relaxed">
-              Cadastre pacientes, registre atendimentos e controle o status de
-              faturamento (Pendente → CPF Inválido → Corrigido → Emitido) em um
-              único lugar. Multi-equipe, com perfis de Admin, Contador e Recepção.
+              Cadastre pacientes, registre atendimentos e controle o status de faturamento (Pendente
+              → CPF Inválido → Corrigido → Emitido) em um único lugar. Multi-equipe, com perfis de
+              Admin, Contador e Recepção.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <a href={contactLink()} target="_blank" rel="noreferrer">
-                <Button size="lg" className="bg-[#25D366] hover:bg-[#1ebe57] text-white">
-                  <MessageCircle className="h-5 w-5" />
-                  Entrar em contato
-                </Button>
-              </a>
+              {contactHref && (
+                <a href={contactHref}>
+                  <Button size="lg">
+                    <Mail className="h-5 w-5" />
+                    Entrar em contato
+                  </Button>
+                </a>
+              )}
               <Link to="/login">
-                <Button size="lg" variant="outline">Acessar minha conta</Button>
+                <Button size="lg" variant="outline">
+                  Acessar minha conta
+                </Button>
               </Link>
             </div>
-            <p className="mt-3 text-xs text-slate-500">
-              Acesso por convite. Sem cadastro público.
-            </p>
+            <p className="mt-3 text-xs text-slate-500">Acesso por convite. Sem cadastro público.</p>
           </div>
         </section>
 
         <section className="max-w-6xl mx-auto px-6 pb-24 grid md:grid-cols-3 gap-5">
           {[
-            { icon: Users, title: "Pacientes em segundos", desc: "CRUD, busca e importação em massa via CSV." },
-            { icon: FileCheck2, title: "Fluxo de faturamento", desc: "Acompanhe cada atendimento até a emissão da nota." },
-            { icon: ShieldCheck, title: "Isolamento total", desc: "Cada clínica vê apenas seus próprios dados. LGPD-friendly." },
+            {
+              icon: Users,
+              title: "Pacientes em segundos",
+              desc: "CRUD, busca e importação em massa via CSV.",
+            },
+            {
+              icon: FileCheck2,
+              title: "Fluxo de faturamento",
+              desc: "Acompanhe cada atendimento até a emissão da nota.",
+            },
+            {
+              icon: ShieldCheck,
+              title: "Isolamento total",
+              desc: "Cada clínica vê apenas seus próprios dados. LGPD-friendly.",
+            },
           ].map((f) => (
             <div key={f.title} className="rounded-xl border bg-white p-6">
               <div className="h-10 w-10 rounded-lg bg-primary/10 text-primary grid place-items-center">
