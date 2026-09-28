@@ -150,6 +150,25 @@ O projeto lê as variáveis abaixo (veja `.env.example`):
 | `SUPABASE_SERVICE_ROLE_KEY` | Chave de service role, somente servidor — contorna RLS e autentica o webhook de backups |
 | `BACKUP_ENCRYPTION_KEY` | Chave de 32 bytes (base64, hex ou texto) usada para criptografar os backups em AES-256-GCM |
 
+### Acesso ao painel global (super admin)
+
+O painel global fica em `/master-admin` e não tem link em nenhum menu — por design, a rota só responde para o papel `super_admin`:
+
+- Logando com uma conta `super_admin`, o próprio login já leva direto ao painel (e as rotas da clínica redirecionam para ele).
+- Digitando a URL sem o papel, a pessoa é levada de volta ao dashboard.
+- Não existe botão para conceder o papel: em uma instância nova, promova sua conta no **SQL Editor do Supabase**, substituindo o e-mail e rodando o bloco inteiro de uma vez:
+
+```sql
+DO $$
+BEGIN
+  PERFORM set_config('request.jwt.claims', '{"role":"service_role"}', false);
+  UPDATE public.profiles SET role = 'super_admin' WHERE email = 'seu@email.com';
+  PERFORM set_config('request.jwt.claims', '', false);
+END $$;
+```
+
+Depois da promoção, recarregue a página e o painel abre. Os demais usuários entram por convite a partir do painel — o app não tem cadastro público (recomendado: no painel do Supabase, em **Authentication**, desative o toggle *Allow new users to sign up*).
+
 ## Destaques técnicos
 
 - **Isolamento multi-tenant no banco.** Todas as tabelas de negócio carregam `clinic_id` e têm políticas de Row Level Security no Supabase. O cliente do navegador usa a chave pública e, por isso, só enxerga os dados da própria clínica; a chave de service role fica restrita a módulos `*.server.ts`.

@@ -150,6 +150,25 @@ The application reads the variables below (see `.env.example`):
 | `SUPABASE_SERVICE_ROLE_KEY` | Service role key, server-only — bypasses RLS and authenticates the backup webhook |
 | `BACKUP_ENCRYPTION_KEY` | 32-byte key (base64, hex or text) used to encrypt backups with AES-256-GCM |
 
+### Global panel access (super admin)
+
+The global panel lives at `/master-admin` and has no menu link — by design, the route only responds to the `super_admin` role:
+
+- Logging in with a `super_admin` account goes straight to the panel (clinic routes redirect there too).
+- Typing the URL without the role bounces the person back to the dashboard.
+- There is no button to grant the role: on a new instance, promote your own account in the **Supabase SQL Editor**, replacing the e-mail and running the whole block at once:
+
+```sql
+DO $$
+BEGIN
+  PERFORM set_config('request.jwt.claims', '{"role":"service_role"}', false);
+  UPDATE public.profiles SET role = 'super_admin' WHERE email = 'seu@email.com';
+  PERFORM set_config('request.jwt.claims', '', false);
+END $$;
+```
+
+After the promotion, reload the page and the panel opens. Other users are invited from the panel — the app has no public sign-up (recommended: in the Supabase dashboard, under **Authentication**, turn off the *Allow new users to sign up* toggle).
+
 ## Technical highlights
 
 - **Tenant isolation in the database.** Every business table carries a `clinic_id` and is covered by Supabase row-level security policies. The browser client uses the public key, so it can only ever read its own clinic's data; the service role key is confined to `*.server.ts` modules.
