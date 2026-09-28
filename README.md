@@ -24,6 +24,14 @@ O ClinicaOS é um SaaS B2B multi-tenant que resolve isso com um fluxo de faturam
 
 Este é um projeto pensado para rodar de verdade em produção: renderização server-side com execução na edge (Cloudflare Workers), autorização em três camadas (banco, servidor e rota), testes automatizados na regra de acesso, auditoria das operações sensíveis, backup criptografado dos dados da clínica e páginas de erro com tratamento próprio.
 
+## Demonstração
+
+**Em produção:** [https://clinica-os-mdm24.vercel.app](https://clinica-os-mdm24.vercel.app) — SSR na Vercel com banco Supabase (RLS).
+
+![Landing page do ClinicaOS](./docs/images/app-landing.png)
+
+![Tela de login do ClinicaOS](./docs/images/app-login.png)
+
 ## Funcionalidades
 
 - **Landing page pública** (`/`) — apresentação do produto com acesso por convite, sem cadastro público.

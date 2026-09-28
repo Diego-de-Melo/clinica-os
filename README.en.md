@@ -24,6 +24,14 @@ ClinicaOS is a multi-tenant B2B SaaS that fixes this with an explicit billing wo
 
 This is a project built to run in production for real: server-side rendering executed on the edge (Cloudflare Workers), authorization in three layers (database, server and route), automated tests over the access rules, audit logging of sensitive operations, encrypted backups of clinic data and dedicated error pages.
 
+## Demo
+
+**Live:** [https://clinica-os-mdm24.vercel.app](https://clinica-os-mdm24.vercel.app) — SSR on Vercel backed by Supabase (RLS).
+
+![ClinicaOS landing page](./docs/images/app-landing.png)
+
+![ClinicaOS login screen](./docs/images/app-login.png)
+
 ## Features
 
 - **Public landing page** (`/`) — product overview with invite-only access and no public sign-up.
