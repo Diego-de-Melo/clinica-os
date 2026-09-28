@@ -30,3 +30,6 @@ dist-ssr
 *.sln
 *.sw?
 !.env.example
+
+# Worktrees locais isolados (skill using-git-worktrees)
+.worktrees/
