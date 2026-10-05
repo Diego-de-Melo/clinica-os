@@ -1,6 +1,8 @@
 import { getRequest } from "@tanstack/react-start/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
+import type { Json } from "@/integrations/supabase/types";
+import { redactMetadata } from "@/lib/audit-redact";
 
 export async function logAuditInternal(
   supabase: SupabaseClient<Database>,
@@ -28,7 +30,7 @@ export async function logAuditInternal(
     _action: params.action,
     _entity: params.entity ?? undefined,
     _record_id: params.recordId ?? undefined,
-    _metadata: (params.metadata ?? null) as never,
+    _metadata: redactMetadata((params.metadata ?? {}) as Json),
     _ip: ip ?? undefined,
     _user_agent: ua ?? undefined,
   });

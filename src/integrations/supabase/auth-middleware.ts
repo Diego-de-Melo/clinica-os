@@ -3,8 +3,9 @@ import { createMiddleware } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from './types'
+import { readSessionFromCookie } from '@/lib/cookie-session'
 
-
+const REF = process.env.VITE_SUPABASE_URL?.replace(/https?:\/\//, '').replace(/\..*/, '') ?? 'project';
 
 export const requireSupabaseAuth = createMiddleware({ type: 'function' }).server(
   async ({ next }) => {
@@ -28,17 +29,20 @@ export const requireSupabaseAuth = createMiddleware({ type: 'function' }).server
       throw new Error('Unauthorized: No request headers available');
     }
 
+    // Ordem: Authorization header -> cookie
     const authHeader = request.headers.get('authorization');
+    const cookieHeader = request.headers.get('cookie');
+    
+    let token: string | null = null;
 
-    if (!authHeader) {
-      throw new Error('Unauthorized: No authorization header provided');
+    if (authHeader?.startsWith('Bearer ')) {
+      token = authHeader.replace('Bearer ', '');
+    } else {
+      // Fallback: lê do cookie httpOnly
+      const session = readSessionFromCookie(request.headers.get('cookie') ?? null, REF);
+      token = session?.accessToken ?? null;
     }
 
-    if (!authHeader.startsWith('Bearer ')) {
-      throw new Error('Unauthorized: Only Bearer tokens are supported');
-    }
-
-    const token = authHeader.replace('Bearer ', '');
     if (!token) {
       throw new Error('Unauthorized: No token provided');
     }

@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { encryptBuffer } from "./backup-crypto.server";
+import { encryptBuffer, decryptBuffer, verifyChecksum, getKey } from "./backup-crypto.server";
 
 const BUCKET = "clinic-backups";
 const MAX_BACKUP_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
@@ -50,9 +50,8 @@ export async function runBackupForClinic(
   if (plaintext.byteLength > MAX_BACKUP_SIZE_BYTES) {
     throw new Error("Backup excede o limite de 50 MB. Reduza os dados antes de continuar.");
   }
-  const { ciphertext, iv, authTag, checksum } = encryptBuffer(plaintext);
 
-  // Próxima versão
+  // Próxima versão (precisa antes do AAD)
   const { data: lastVer } = await supabaseAdmin
     .from("backups")
     .select("version")
@@ -64,6 +63,9 @@ export async function runBackupForClinic(
 
   const date = new Date().toISOString().slice(0, 10);
   const objectPath = `${clinicId}/${date}-v${version}.bin`;
+
+  const aad = `${clinicId}:${objectPath}`;
+  const { ciphertext, iv, authTag, checksum } = encryptBuffer(plaintext, aad);
 
   const { error: upErr } = await supabaseAdmin.storage
     .from(BUCKET)
@@ -138,57 +140,19 @@ export async function downloadAndDecrypt(backupId: string, clinicId: string): Pr
   }
 
   const cipherBuf = Buffer.from(await file.arrayBuffer());
-  const { decryptBuffer } = await import("./backup-crypto.server");
-  const plaintext = decryptBuffer(cipherBuf, bk.iv, bk.auth_tag);
+  const aad = `${clinicId}:${bk.object_path}`;
+  const { decryptBuffer, verifyChecksum, getKey } = await import("./backup-crypto.server");
 
-  // Verify checksum
+  const plaintext = decryptBuffer(cipherBuf, bk.iv, bk.auth_tag, aad);
+
+  // Verify checksum (novo HMAC ou legado sha256)
   if (bk.checksum_sha256) {
-    const { createHash } = await import("node:crypto");
-    const actual = createHash("sha256").update(plaintext).digest("hex");
-    if (actual !== bk.checksum_sha256) {
+    const key = getKey();
+    const ok = verifyChecksum(plaintext, cipherBuf, bk.checksum_sha256, key);
+    if (!ok) {
       throw new Error("Backup corrompido: checksum não confere.");
     }
   }
 
   return plaintext;
-}
-
-export async function createSignedTempDownload(
-  clinicId: string,
-  backupId: string,
-): Promise<{ url: string; expiresIn: number; filename: string }> {
-  const plaintext = await downloadAndDecrypt(backupId, clinicId);
-  const tmpPath = `tmp/${clinicId}/${backupId}-${Date.now()}.json`;
-  const { error: upErr } = await supabaseAdmin.storage
-    .from(BUCKET)
-    .upload(tmpPath, plaintext, {
-      contentType: "application/json",
-      upsert: true,
-    });
-  if (upErr) {
-    console.error("[backup] tmp upload failed", upErr);
-    throw new Error("Não foi possível preparar o download do backup.");
-  }
-
-  const { data: signed, error: sigErr } = await supabaseAdmin.storage
-    .from(BUCKET)
-    .createSignedUrl(tmpPath, 60 * 15, {
-      download: `backup-${backupId}.json`,
-    });
-  if (sigErr || !signed) {
-    if (sigErr) console.error("[backup] sign url failed", sigErr);
-    // Cleanup tmp file on error
-    await supabaseAdmin.storage.from(BUCKET).remove([tmpPath]).catch(() => {});
-    throw new Error("Não foi possível gerar o link de download.");
-  }
-
-  // Cleanup plaintext tmp file immediately — signed URL is already valid for 15 min
-  // but the file shouldn't remain accessible in storage
-  await supabaseAdmin.storage.from(BUCKET).remove([tmpPath]).catch(() => {});
-
-  return {
-    url: signed.signedUrl,
-    expiresIn: 60 * 15,
-    filename: `backup-${backupId}.json`,
-  };
 }

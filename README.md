@@ -63,7 +63,7 @@ Este é um projeto pensado para rodar de verdade em produção: renderização s
 | shadcn/ui + Radix UI | Componentes acessíveis no estilo "new-york" |
 | Zod | Validação de entrada de todas as server functions |
 | Vitest | Testes das regras de acesso e utilidades |
-| Bun | Gerenciador de pacotes e scripts do projeto |
+| npm | Gerenciador de pacotes e scripts do projeto |
 | Prettier + ESLint | Formatação e lint (com plugin do Prettier) |
 
 ## Estrutura do projeto
@@ -101,7 +101,7 @@ Este é um projeto pensado para rodar de verdade em produção: renderização s
 ├── wrangler.jsonc               # Configuração do Cloudflare Workers
 ├── vite.config.ts               # Config do Vite/TanStack Start
 ├── vitest.config.ts             # Config dos testes (ambiente node)
-├── bunfig.toml                  # Guarda de supply-chain do Bun (release age de 24h)
+├── .npmrc                       # Config do npm (audit level, engine strict)
 └── AGENTS.md                    # Convenções do projeto
 ```
 
@@ -109,7 +109,8 @@ Este é um projeto pensado para rodar de verdade em produção: renderização s
 
 ### Pré-requisitos
 
-- [Bun](https://bun.sh) — gerenciador de pacotes usado no projeto.
+- [Node.js](https://nodejs.org) ≥ 24 — runtime do projeto.
+- [npm](https://npmjs.com) ≥ 11 — gerenciador de pacotes (vem com Node.js).
 - Um projeto Supabase com as migrações de `supabase/migrations` aplicadas.
 - (Opcional) Conta Cloudflare Workers para o deploy de produção.
 
@@ -118,23 +119,24 @@ Este é um projeto pensado para rodar de verdade em produção: renderização s
 ```bash
 git clone https://github.com/<seu_usuario>/clinica-os.git
 cd clinica-os
-bun install
+npm ci
 cp .env.example .env   # preencha as variáveis do seu projeto Supabase
-bun run dev
+npm run dev
 ```
 
 ### Comandos
 
 | Comando | O que faz |
 | --- | --- |
-| `bun run dev` | Servidor de desenvolvimento (Vite) |
-| `bun run build` | Build de produção (Cloudflare Workers) |
-| `bun run build:dev` | Build em modo de desenvolvimento |
-| `bun run preview` | Pré-visualiza o build |
-| `bun run lint` | ESLint |
-| `bun run format` | Prettier (formata o código) |
-| `bun run test` | Vitest (execução única) |
-| `bun run test:watch` | Vitest em modo watch |
+| `npm run dev` | Servidor de desenvolvimento (Vite) |
+| `npm run build` | Build de produção (Cloudflare Workers) |
+| `npm run build:dev` | Build em modo de desenvolvimento |
+| `npm run preview` | Pré-visualiza o build |
+| `npm run lint` | ESLint |
+| `npm run format` | Prettier (formata o código) |
+| `npm run test` | Vitest (execução única) |
+| `npm run test:watch` | Vitest em modo watch |
+| `npm run test:rls` | Testes de integração RLS (exige Docker + Supabase local) |
 
 ### Variáveis de ambiente
 
@@ -156,7 +158,16 @@ O painel global fica em `/master-admin` e não tem link em nenhum menu — por d
 
 - Logando com uma conta `super_admin`, o próprio login já leva direto ao painel (e as rotas da clínica redirecionam para ele).
 - Digitando a URL sem o papel, a pessoa é levada de volta ao dashboard.
-- Não existe botão para conceder o papel: em uma instância nova, promova sua conta no **SQL Editor do Supabase**, substituindo o e-mail e rodando o bloco inteiro de uma vez:
+- Não existe botão para conceder o papel: em uma instância nova a conta nasce fora do app e é promovida no **SQL Editor do Supabase** — veja o bootstrap abaixo.
+
+#### Bootstrap da primeira conta (instância nova)
+
+Em uma instância recém-criada não existe nenhuma conta e o app não tem tela de cadastro — os usuários entram por convite. A primeira conta, portanto, nasce fora do app:
+
+1. No dashboard do Supabase, em **Authentication → Users**, use **Invite user** e informe o e-mail do responsável pelo SaaS. O convite cria o usuário em `auth.users` sem abrir o cadastro público — o endpoint `admin/invite` não é afetado pelo toggle *Allow new users to sign up*.
+2. Pelo e-mail recebido, defina a senha e entre no app. Nesse ponto a conta nasce como `usuario` sem clínica: o gatilho `handle_new_user` só lê `role` e `clinic_id` dos metadata quando o pedido vem de `service_role`.
+3. No **SQL Editor do Supabase**, substitua o e-mail no bloco abaixo e rode ele inteiro de uma vez. O `set_config` das claims é obrigatório: sem ele `is_super_admin()` retorna falso e o trigger `prevent_profile_privilege_escalation` lança *Not allowed to change role*.
+4. Recarregue e entre novamente — o login cai direto em `/master-admin`.
 
 ```sql
 DO $$
@@ -167,18 +178,29 @@ BEGIN
 END $$;
 ```
 
-Depois da promoção, recarregue a página e o painel abre. Os demais usuários entram por convite a partir do painel — o app não tem cadastro público (recomendado: no painel do Supabase, em **Authentication**, desative o toggle *Allow new users to sign up*).
+Os demais usuários entram por convite a partir do painel — o app não tem cadastro público (recomendado: no painel do Supabase, em **Authentication**, desative o toggle *Allow new users to sign up*).
 
 ## Destaques técnicos
 
 - **Isolamento multi-tenant no banco.** Todas as tabelas de negócio carregam `clinic_id` e têm políticas de Row Level Security no Supabase. O cliente do navegador usa a chave pública e, por isso, só enxerga os dados da própria clínica; a chave de service role fica restrita a módulos `*.server.ts`.
-- **Autorização em três camadas.** Políticas RLS no Postgres, asserções de papel nas server functions (`assertAdminRole`, `assertPatientWriter`, `assertAttendanceWriter`, `assertStaffRole`) e guards de rota (`requireAppSession`, `requireSuperAdminSession`) que redirecionam para login, bloqueio ou painel global conforme o contexto.
+- **Autorização em três camadas.** Políticas RLS no Postgres, asserções de papel nas server functions (`assertAdminRole`, `assertPatientWriter`, `assertAttendanceWriter`, `assertStaffRole`) e **guards de rota no servidor via `beforeLoad`** (`requireAppSession`, `requireSuperAdminSession`) que redirecionam para login, bloqueio ou painel global antes do componente renderizar.
 - **Transições de faturamento por papel.** As mudanças de status não são um botão genérico: cada papel recebe apenas as transições que pode executar (por exemplo, o contador emite e marca CPF inválido; admin e operador corrigem o CPF), e o super admin fica de fora dos dados clínicos.
 - **SSR com execução na edge.** TanStack Start com server functions, middleware global de erro (página própria em status 500) e encaminhamento do token de autenticação para as chamadas de servidor, compilado para Cloudflare Workers.
 - **Testes automatizados na regra de acesso.** Vitest cobre `auth-guards`, `clinic-utils` e a matriz de RLS/papéis — justamente o que costuma quebrar sem ninguém perceber.
 - **Auditoria e LGPD.** Função `log_audit` registrando as operações sensíveis, exportação e anonimização de dados do paciente, tabela de consentimentos, soft delete de atendimentos e remoção do acesso do super admin aos dados clínicos.
 - **Backup criptografado e versionado.** Snapshots em AES-256-GCM com checksum, versionamento por clínica, retenção configurável, restauração e webhook de execução agendada autenticado por service key.
-- **Qualidade de código.** Validação com Zod em toda server function, erros padronizados em módulo próprio, ESLint + Prettier e guarda de supply-chain do Bun (pacotes com pelo menos 24h de publicação).
+- **Qualidade de código.** Validação com Zod em toda server function, erros padronizados em módulo próprio, ESLint + Prettier e **audit de dependências obrigatório no CI** (`npm audit --omit=dev --audit-level=high`).
+
+## Segurança
+
+- **Headers de segurança no Worker** (M9): CSP estrita em produção, headers essenciais em dev, toggle `CSP_REPORT_ONLY=1`.
+- **Rate limiting** (M2): backup (1/30min/clínica), importação CSV (5/h/usuário), login (10/15min/IP).
+- **Sessão em cookie httpOnly** (M3): `@supabase/ssr` com fallback de cookie no middleware.
+- **Webhook de backup com segredo dedicado** (A1): `BACKUP_HOOK_SECRET` separado da `service_role`.
+- **Redação de PII** (A3): `audit_logs.metadata` anonimizado antes de gravar.
+- **Remoção de `logAudit` exposta** (A4): endpoint público removido.
+- **Validação de redirecionamento** (B6): `assertAllowedRedirect` bloqueia origens não permitidas.
+- **CSV formula injection** (M4): `csvCell` neutraliza `=`, `+`, `-`, `@`, tab, CR/LF.
 
 ## Licença
 

@@ -43,12 +43,14 @@ import {
   Mail,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { requireSuperAdminSession } from "@/lib/route-auth";
 
 export const Route = createFileRoute("/master-admin")({
   head: () => ({
     meta: [{ title: `Master Admin — ${APP_NAME}` }, { name: "robots", content: "noindex, nofollow" }],
   }),
   component: SuperAdminPage,
+  beforeLoad: requireSuperAdminSession,
 });
 
 function SuperAdminPage() {
@@ -100,16 +102,10 @@ function SuperAdminPage() {
     navigate({ to: "/login" });
   }
 
-  useEffect(() => {
-    if (!isLoading && !isFetching && (!session || session.role !== "super_admin")) {
-      navigate({ to: "/login" });
-    }
-  }, [isLoading, isFetching, session, navigate]);
-
   if (isLoading) {
     return <div className="min-h-screen grid place-items-center text-sm text-muted-foreground">Carregando…</div>;
   }
-  if (!session || session.role !== "super_admin") return null;
+  // requireSuperAdminSession no beforeLoad garante que só super_admin chega aqui
 
   return (
     <div className="min-h-screen bg-background">

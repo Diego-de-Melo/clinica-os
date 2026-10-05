@@ -2,6 +2,7 @@ import { createServerFn, createMiddleware } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { throwDatabaseError, throwServiceError } from "@/lib/safe-errors";
+import { assertAllowedRedirect } from "@/lib/csv";
 
 const logAuditInternal: typeof import("@/lib/audit.server").logAuditInternal = async (...args) =>
   (await import("@/lib/audit.server")).logAuditInternal(...args);
@@ -68,6 +69,22 @@ export const createClinicWithAdmin = createServerFn({ method: "POST" })
         status: z.enum(["ativo", "inativo"]).default("inativo"),
         redirectTo: z.string().url().optional(),
       })
+      .superRefine((data, ctx) => {
+        if (data.redirectTo) {
+          try {
+            assertAllowedRedirect(data.redirectTo, [
+              process.env.APP_ORIGIN ?? "",
+              process.env.VITE_APP_ORIGIN ?? "",
+            ].filter(Boolean));
+          } catch (e) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: e instanceof Error ? e.message : "URL de redirecionamento não permitida",
+              path: ["redirectTo"],
+            });
+          }
+        }
+      })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
@@ -112,6 +129,22 @@ export const resendClinicAdminInvite = createServerFn({ method: "POST" })
       .object({
         clinicId: z.string().uuid(),
         redirectTo: z.string().url().optional(),
+      })
+      .superRefine((data, ctx) => {
+        if (data.redirectTo) {
+          try {
+            assertAllowedRedirect(data.redirectTo, [
+              process.env.APP_ORIGIN ?? "",
+              process.env.VITE_APP_ORIGIN ?? "",
+            ].filter(Boolean));
+          } catch (e) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: e instanceof Error ? e.message : "URL de redirecionamento não permitida",
+              path: ["redirectTo"],
+            });
+          }
+        }
       })
       .parse(input),
   )

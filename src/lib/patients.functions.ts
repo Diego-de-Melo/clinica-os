@@ -7,6 +7,7 @@ import {
 } from "@/lib/auth-guards";
 const logAuditInternal: typeof import("@/lib/audit.server").logAuditInternal = async (...args) => (await import("@/lib/audit.server")).logAuditInternal(...args);
 import { throwDatabaseError } from "@/lib/safe-errors";
+import { limitFor } from "@/lib/rate-limit";
 
 export const listPatients = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -105,10 +106,19 @@ export const updatePatient = createServerFn({ method: "POST" })
     const prof = await requireClinicProfile(supabase, userId);
     assertPatientWriter(prof.role, "Apenas Admin ou Operador podem editar pacientes");
     const { id, ...rest } = data;
+    const { data: existing, error: checkErr } = await supabase
+      .from("patients")
+      .select("id")
+      .eq("id", id)
+      .eq("clinic_id", prof.clinic_id)
+      .maybeSingle();
+    if (checkErr) throwDatabaseError(checkErr);
+    if (!existing) throw new Error("Paciente não encontrado.");
     const { error } = await supabase
       .from("patients")
       .update(rest)
-      .eq("id", id);
+      .eq("id", id)
+      .eq("clinic_id", prof.clinic_id);
     if (error) throwDatabaseError(error);
     await logAuditInternal(supabase, {
       action: "patient.update", entity: "patient", recordId: id,
@@ -124,10 +134,19 @@ export const deletePatient = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const prof = await requireClinicProfile(supabase, userId);
     assertPatientWriter(prof.role, "Apenas Admin ou Operador podem remover pacientes");
+    const { data: existing, error: checkErr } = await supabase
+      .from("patients")
+      .select("id")
+      .eq("id", data.id)
+      .eq("clinic_id", prof.clinic_id)
+      .maybeSingle();
+    if (checkErr) throwDatabaseError(checkErr);
+    if (!existing) throw new Error("Paciente não encontrado.");
     const { error } = await supabase
       .from("patients")
       .update({ deleted_at: new Date().toISOString() })
-      .eq("id", data.id);
+      .eq("id", data.id)
+      .eq("clinic_id", prof.clinic_id);
     if (error) throwDatabaseError(error);
     await logAuditInternal(supabase, {
       action: "patient.delete", entity: "patient", recordId: data.id,
@@ -146,7 +165,7 @@ export const bulkCreatePatients = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const prof = await requireClinicProfile(supabase, userId);
     assertPatientWriter(prof.role, "Apenas Admin ou Operador podem importar CSV");
-    const clinicId = prof.clinic_id;
+    limitFor(`bulk:${prof.clinic_id}:${prof.id}`, 5, 60 * 60_000); // 5 per hour per user
     const rows = data.patients.map((p) => ({ ...p, clinic_id: clinicId }));
     const { error, count } = await supabase
       .from("patients")

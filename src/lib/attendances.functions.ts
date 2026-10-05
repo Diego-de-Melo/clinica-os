@@ -94,6 +94,14 @@ export const createAttendance = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const prof = await requireClinicProfile(supabase, userId);
     assertAttendanceWriter(prof.role, "Apenas Admin ou Operador podem registrar atendimentos");
+    const { data: patient, error: pErr } = await supabase
+      .from("patients")
+      .select("id")
+      .eq("id", data.patient_id)
+      .eq("clinic_id", prof.clinic_id)
+      .maybeSingle();
+    if (pErr) throwDatabaseError(pErr);
+    if (!patient) throw new Error("Paciente não encontrado.");
     const { data: row, error } = await supabase
       .from("attendances")
       .insert({ ...data, clinic_id: prof.clinic_id })
@@ -119,7 +127,19 @@ export const updateAttendance = createServerFn({ method: "POST" })
     const prof = await requireClinicProfile(supabase, userId);
     assertAttendanceWriter(prof.role, "Apenas Admin ou Operador podem editar atendimentos");
     const { id, ...patch } = data;
-    const { error } = await supabase.from("attendances").update(patch).eq("id", id);
+    const { data: existing, error: checkErr } = await supabase
+      .from("attendances")
+      .select("id")
+      .eq("id", id)
+      .eq("clinic_id", prof.clinic_id)
+      .maybeSingle();
+    if (checkErr) throwDatabaseError(checkErr);
+    if (!existing) throw new Error("Atendimento não encontrado.");
+    const { error } = await supabase
+      .from("attendances")
+      .update(patch)
+      .eq("id", id)
+      .eq("clinic_id", prof.clinic_id);
     if (error) throwDatabaseError(error);
     await logAuditInternal(supabase, {
       action: "attendance.update",
@@ -175,8 +195,11 @@ export const deleteAttendance = createServerFn({ method: "POST" })
     const prof = await requireClinicProfile(supabase, userId);
     assertAttendanceWriter(prof.role, "Apenas Admin ou Operador podem remover atendimentos");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase.rpc as any)("soft_delete_attendance", { p_id: data.id });
+    const { data: deleted, error } = await (supabase.rpc as any)("soft_delete_attendance", {
+      p_id: data.id,
+    });
     if (error) throwDatabaseError(error);
+    if (deleted !== true) throw new Error("Atendimento não encontrado.");
     await logAuditInternal(supabase, {
       action: "attendance.delete",
       entity: "attendance",

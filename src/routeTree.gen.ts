@@ -9,33 +9,27 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as MasterAdminRouteImport } from './routes/master-admin'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as BloqueioRouteImport } from './routes/bloqueio'
-import { Route as AceitarConviteRouteImport } from './routes/aceitar-convite'
-import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as MasterAdminLogsRouteImport } from './routes/master-admin.logs'
-import { Route as AppEquipeRouteImport } from './routes/_app/equipe'
-import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
+import { Route as AppRouteImport } from './routes/_app'
+import { Route as AceitarConviteRouteImport } from './routes/aceitar-convite'
+import { Route as BloqueioRouteImport } from './routes/bloqueio'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as MasterAdminRouteImport } from './routes/master-admin'
 import { Route as AppBackupsRouteImport } from './routes/_app/backups'
+import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
+import { Route as AppEquipeRouteImport } from './routes/_app/equipe'
+import { Route as MasterAdminLogsRouteImport } from './routes/master-admin.logs'
 import { Route as AppPacientesIndexRouteImport } from './routes/_app/pacientes.index'
 import { Route as AppPacientesIdRouteImport } from './routes/_app/pacientes.$id'
 import { Route as ApiPublicHooksRunClinicBackupsRouteImport } from './routes/api/public/hooks/run-clinic-backups'
 
-const MasterAdminRoute = MasterAdminRouteImport.update({
-  id: '/master-admin',
-  path: '/master-admin',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const BloqueioRoute = BloqueioRouteImport.update({
-  id: '/bloqueio',
-  path: '/bloqueio',
+const AppRoute = AppRouteImport.update({
+  id: '/_app',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AceitarConviteRoute = AceitarConviteRouteImport.update({
@@ -43,23 +37,24 @@ const AceitarConviteRoute = AceitarConviteRouteImport.update({
   path: '/aceitar-convite',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AppRoute = AppRouteImport.update({
-  id: '/_app',
+const BloqueioRoute = BloqueioRouteImport.update({
+  id: '/bloqueio',
+  path: '/bloqueio',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const MasterAdminLogsRoute = MasterAdminLogsRouteImport.update({
-  id: '/logs',
-  path: '/logs',
-  getParentRoute: () => MasterAdminRoute,
+const MasterAdminRoute = MasterAdminRouteImport.update({
+  id: '/master-admin',
+  path: '/master-admin',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AppEquipeRoute = AppEquipeRouteImport.update({
-  id: '/equipe',
-  path: '/equipe',
+const AppBackupsRoute = AppBackupsRouteImport.update({
+  id: '/backups',
+  path: '/backups',
   getParentRoute: () => AppRoute,
 } as any)
 const AppDashboardRoute = AppDashboardRouteImport.update({
@@ -67,10 +62,15 @@ const AppDashboardRoute = AppDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AppRoute,
 } as any)
-const AppBackupsRoute = AppBackupsRouteImport.update({
-  id: '/backups',
-  path: '/backups',
+const AppEquipeRoute = AppEquipeRouteImport.update({
+  id: '/equipe',
+  path: '/equipe',
   getParentRoute: () => AppRoute,
+} as any)
+const MasterAdminLogsRoute = MasterAdminLogsRouteImport.update({
+  id: '/logs',
+  path: '/logs',
+  getParentRoute: () => MasterAdminRoute,
 } as any)
 const AppPacientesIndexRoute = AppPacientesIndexRouteImport.update({
   id: '/pacientes/',
@@ -191,32 +191,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/master-admin': {
-      id: '/master-admin'
-      path: '/master-admin'
-      fullPath: '/master-admin'
-      preLoaderRoute: typeof MasterAdminRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/bloqueio': {
-      id: '/bloqueio'
-      path: '/bloqueio'
-      fullPath: '/bloqueio'
-      preLoaderRoute: typeof BloqueioRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/aceitar-convite': {
-      id: '/aceitar-convite'
-      path: '/aceitar-convite'
-      fullPath: '/aceitar-convite'
-      preLoaderRoute: typeof AceitarConviteRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app': {
@@ -226,25 +205,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/aceitar-convite': {
+      id: '/aceitar-convite'
+      path: '/aceitar-convite'
+      fullPath: '/aceitar-convite'
+      preLoaderRoute: typeof AceitarConviteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/master-admin/logs': {
-      id: '/master-admin/logs'
-      path: '/logs'
-      fullPath: '/master-admin/logs'
-      preLoaderRoute: typeof MasterAdminLogsRouteImport
-      parentRoute: typeof MasterAdminRoute
+    '/bloqueio': {
+      id: '/bloqueio'
+      path: '/bloqueio'
+      fullPath: '/bloqueio'
+      preLoaderRoute: typeof BloqueioRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_app/equipe': {
-      id: '/_app/equipe'
-      path: '/equipe'
-      fullPath: '/equipe'
-      preLoaderRoute: typeof AppEquipeRouteImport
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/master-admin': {
+      id: '/master-admin'
+      path: '/master-admin'
+      fullPath: '/master-admin'
+      preLoaderRoute: typeof MasterAdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_app/backups': {
+      id: '/_app/backups'
+      path: '/backups'
+      fullPath: '/backups'
+      preLoaderRoute: typeof AppBackupsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/dashboard': {
@@ -254,12 +247,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppDashboardRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/backups': {
-      id: '/_app/backups'
-      path: '/backups'
-      fullPath: '/backups'
-      preLoaderRoute: typeof AppBackupsRouteImport
+    '/_app/equipe': {
+      id: '/_app/equipe'
+      path: '/equipe'
+      fullPath: '/equipe'
+      preLoaderRoute: typeof AppEquipeRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/master-admin/logs': {
+      id: '/master-admin/logs'
+      path: '/logs'
+      fullPath: '/master-admin/logs'
+      preLoaderRoute: typeof MasterAdminLogsRouteImport
+      parentRoute: typeof MasterAdminRoute
     }
     '/_app/pacientes/': {
       id: '/_app/pacientes/'

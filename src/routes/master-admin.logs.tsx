@@ -17,12 +17,15 @@ import {
 } from "@/components/ui/dialog";
 import { ArrowLeft, Download, LogOut, ShieldCheck, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { requireSuperAdminSession } from "@/lib/route-auth";
+import { csvCell } from "@/lib/csv";
 
 export const Route = createFileRoute("/master-admin/logs")({
   head: () => ({
     meta: [{ title: `Logs — ${APP_NAME}` }, { name: "robots", content: "noindex, nofollow" }],
   }),
   component: LogsPage,
+  beforeLoad: requireSuperAdminSession,
 });
 
 function LogsPage() {
@@ -76,15 +79,13 @@ function LogsPage() {
   if (loadingSession || !session) {
     return <div className="min-h-screen grid place-items-center text-sm text-muted-foreground">Carregando…</div>;
   }
-  if (session.role !== "super_admin") {
-    return <div className="min-h-screen grid place-items-center text-sm text-destructive">Acesso negado.</div>;
-  }
+  // requireSuperAdminSession no beforeLoad garante que só super_admin chega aqui
 
   function exportCSV() {
     const rows = logs ?? [];
     const header = ["data", "clinica", "usuario", "acao", "entidade", "record_id", "ip", "metadata"];
     const csv = [
-      header.join(","),
+      header.map(csvCell).join(","),
       ...rows.map((r) =>
         [
           new Date(r.created_at).toISOString(),
@@ -94,9 +95,9 @@ function LogsPage() {
           r.entity ?? "",
           r.record_id ?? "",
           r.ip ?? "",
-          JSON.stringify(r.metadata ?? {}).replace(/"/g, '""'),
+          JSON.stringify(r.metadata ?? {}),
         ]
-          .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+          .map(csvCell)
           .join(","),
       ),
     ].join("\n");

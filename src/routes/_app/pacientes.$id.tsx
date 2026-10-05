@@ -3,15 +3,22 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { getPatient, updatePatient } from "@/lib/patients.functions";
+import { exportPatientData, anonymizePatient } from "@/lib/lgpd.functions";
 import {
-  createAttendance, updateAttendance, deleteAttendance,
-  INVOICE_FOR_LABEL, INVOICE_FOR_VALUES, PAYMENT_METHODS,
+  createAttendance,
+  updateAttendance,
+  deleteAttendance,
+  INVOICE_FOR_LABEL,
+  INVOICE_FOR_VALUES,
+  PAYMENT_METHODS,
   ATTENDANCE_STATUSES,
-  type InvoiceFor, type PaymentMethod, type AttendanceStatus,
+  type InvoiceFor,
+  type PaymentMethod,
+  type AttendanceStatus,
 } from "@/lib/attendances.functions";
 import { useSession } from "@/hooks/use-session";
 import { APP_NAME } from "@/lib/constants";
-import { ArrowLeft, Pencil, Plus, Trash2, Eye, Loader2 } from "lucide-react";
+import { ArrowLeft, Pencil, Plus, Trash2, Eye, Loader2, Download, ShieldAlert } from "lucide-react";
 import { formatCPF } from "@/lib/cpf";
 import { formatCNPJ } from "@/lib/cnpj";
 import { formatDateBR } from "@/lib/utils";
@@ -21,17 +28,36 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 
@@ -41,6 +67,57 @@ export const Route = createFileRoute("/_app/pacientes/$id")({
   }),
   component: PatientDetail,
 });
+
+function ExportPatientButton({ patientId }: { patientId: string }) {
+  const fn = useServerFn(exportPatientData);
+  const mut = useMutation({
+    mutationFn: () => fn({ data: { patientId } }),
+    onSuccess: (data) => {
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `paciente-${patientId}-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Dados exportados (JSON)");
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Erro ao exportar"),
+  });
+  return (
+    <Button variant="outline" size="sm" onClick={() => mut.mutate()} disabled={mut.isPending}>
+      <Download className="h-4 w-4" />
+      {mut.isPending ? "Exportando..." : "Exportar dados (JSON)"}
+    </Button>
+  );
+}
+
+function AnonymizePatientButtonSimple({ patientId, patientName }: { patientId: string; patientName: string }) {
+  const fn = useServerFn(anonymizePatient);
+  const mut = useMutation({
+    mutationFn: () => fn({ data: { patientId } }),
+    onSuccess: () => {
+      toast.success("Paciente anonimizado");
+      window.location.reload();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Erro"),
+  });
+  return (
+    <Button
+      variant="destructive"
+      size="sm"
+      onClick={() => {
+        if (window.confirm(`Confirmar anonimização de ${patientName}? Ação irreversível.`)) {
+          mut.mutate();
+        }
+      }}
+      disabled={mut.isPending}
+    >
+      <ShieldAlert className="h-4 w-4" />
+      {mut.isPending ? "Anonimizando..." : "Anonimizar cadastro"}
+    </Button>
+  );
+}
 
 type AttendanceRow = {
   id: string;
@@ -138,15 +215,22 @@ function PatientDetail() {
           </TableHeader>
           <TableBody>
             {data.attendances.length === 0 && (
-              <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Sem atendimentos.</TableCell></TableRow>
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  Sem atendimentos.
+                </TableCell>
+              </TableRow>
             )}
             {data.attendances.map((a) => {
               const inv = a.invoice_for as InvoiceFor | undefined;
               const recipientCpf =
-                inv === "father" ? data.patient.father_cpf
-                : inv === "mother" ? data.patient.mother_cpf
-                : inv === "cnpj" ? null
-                : data.patient.cpf;
+                inv === "father"
+                  ? data.patient.father_cpf
+                  : inv === "mother"
+                    ? data.patient.mother_cpf
+                    : inv === "cnpj"
+                      ? null
+                      : data.patient.cpf;
               const recipientCnpj = inv === "cnpj" ? data.patient.cnpj : null;
               return (
                 <TableRow key={a.id}>
@@ -155,9 +239,15 @@ function PatientDetail() {
                   <TableCell>{a.payment_method ?? "—"}</TableCell>
                   <TableCell>
                     <div>{inv ? INVOICE_FOR_LABEL[inv] : "—"}</div>
-                    {recipientCnpj && <div className="text-xs text-muted-foreground">CNPJ: {formatCNPJ(recipientCnpj)}</div>}
-                    {inv === "cnpj" && data.patient.company_name && <div className="text-xs text-muted-foreground">{data.patient.company_name}</div>}
-                    {recipientCpf && <div className="text-xs text-muted-foreground">CPF: {formatCPF(recipientCpf)}</div>}
+                    {recipientCnpj && (
+                      <div className="text-xs text-muted-foreground">CNPJ: {formatCNPJ(recipientCnpj)}</div>
+                    )}
+                    {inv === "cnpj" && data.patient.company_name && (
+                      <div className="text-xs text-muted-foreground">{data.patient.company_name}</div>
+                    )}
+                    {recipientCpf && (
+                      <div className="text-xs text-muted-foreground">CPF: {formatCPF(recipientCpf)}</div>
+                    )}
                   </TableCell>
                   <TableCell>
                     <StatusBadge status={a.status} />
@@ -243,10 +333,13 @@ function StatusBadge({ status }: { status: string }) {
 
 // ---------- Edit patient ----------
 function EditPatientDialog({
-  patient, onClose, onDone,
+  patient,
+  onClose,
+  onDone,
 }: {
   patient: { id: string; name: string; cpf: string | null; cnpj: string | null; company_name: string | null; father_name: string | null; father_cpf: string | null; mother_name: string | null; mother_cpf: string | null };
-  onClose: () => void; onDone: () => void;
+  onClose: () => void;
+  onDone: () => void;
 }) {
   const updFn = useServerFn(updatePatient);
   const [form, setForm] = useState({
@@ -305,12 +398,17 @@ function EditPatientDialog({
 
 // ---------- Create / Edit Attendance ----------
 function AttendanceDialog({
-  patientId, mode, attendance, onClose, onDone,
+  patientId,
+  mode,
+  attendance,
+  onClose,
+  onDone,
 }: {
   patientId: string;
   mode: "create" | "edit";
   attendance?: AttendanceRow;
-  onClose: () => void; onDone: () => void;
+  onClose: () => void;
+  onDone: () => void;
 }) {
   const createFn = useServerFn(createAttendance);
   const updateFn = useServerFn(updateAttendance);
@@ -431,7 +529,9 @@ function ViewAttendanceDialog({ attendance, onClose }: { attendance: AttendanceR
 }
 
 function DeleteAttendanceDialog({
-  attendance, onClose, onDone,
+  attendance,
+  onClose,
+  onDone,
 }: { attendance: AttendanceRow; onClose: () => void; onDone: () => void }) {
   const delFn = useServerFn(deleteAttendance);
   const mut = useMutation({

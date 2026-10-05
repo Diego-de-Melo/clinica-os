@@ -5,77 +5,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { requireProfile, assertSuperAdminRole } from "@/lib/auth-guards";
 import { throwDatabaseError } from "@/lib/safe-errors";
 import type { Json } from "@/integrations/supabase/types";
-
-const SENSITIVE_KEYS = new Set([
-  "cpf",
-  "cnpj",
-  "password",
-  "senha",
-  "token",
-  "secret",
-  "key",
-  "father_name",
-  "father_cpf",
-  "mother_name",
-  "mother_cpf",
-  "responsible_name",
-  "responsible_cpf",
-  "company_name",
-]);
-
-function redactMetadata(meta: Json | null): Json | null {
-  if (!meta || typeof meta !== "object" || Array.isArray(meta)) return meta;
-  const clean: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(meta)) {
-    if (SENSITIVE_KEYS.has(k.toLowerCase())) {
-      clean[k] = "[REDACTED]";
-    } else if (k.toLowerCase() === "name" && typeof v === "string") {
-      clean[k] = "[REDACTED]";
-    } else if (typeof v === "string" && /\d{3}\.\d{3}\.\d{3}-\d{2}/.test(v)) {
-      clean[k] = "[REDACTED]";
-    } else {
-      clean[k] = v;
-    }
-  }
-  return clean as Json;
-}
-
-const inputSchema = z.object({
-  action: z.string().min(1).max(80),
-  entity: z.string().max(80).optional().nullable(),
-  recordId: z.string().uuid().optional().nullable(),
-  metadata: z.record(z.string(), z.unknown()).optional().nullable(),
-});
-
-export const logAudit = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((input) => inputSchema.parse(input))
-  .handler(async ({ context, data }) => {
-    const { supabase } = context;
-    const req = (() => {
-      try {
-        return getRequest();
-      } catch {
-        return null;
-      }
-    })();
-    const ip =
-      req?.headers.get("cf-connecting-ip") ??
-      req?.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-      null;
-    const ua = req?.headers.get("user-agent") ?? null;
-
-    const { error } = await supabase.rpc("log_audit", {
-      _action: data.action,
-      _entity: data.entity ?? undefined,
-      _record_id: data.recordId ?? undefined,
-      _metadata: redactMetadata((data.metadata ?? null) as Json) as never,
-      _ip: ip ?? undefined,
-      _user_agent: ua ?? undefined,
-    });
-    if (error) console.error("[audit] log failed:", error.message);
-    return { ok: true };
-  });
+import { redactMetadata } from "@/lib/audit-redact";
 
 export const listAuditLogs = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])

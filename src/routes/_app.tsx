@@ -13,9 +13,11 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEffect } from "react";
+import { requireAppSession } from "@/lib/route-auth";
 
 export const Route = createFileRoute("/_app")({
   component: AppLayout,
+  beforeLoad: requireAppSession,
 });
 
 const ROLE_LABELS: Record<string, string> = {
@@ -32,16 +34,10 @@ function AppLayout() {
   const { data: session, isLoading, isFetching } = useSession();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
-  useEffect(() => {
-    if (!isLoading && !isFetching && !session) {
-      navigate({ to: "/login" });
-    }
-  }, [isLoading, isFetching, session, navigate]);
-
   if (isLoading) {
     return <div className="min-h-screen grid place-items-center text-sm text-muted-foreground">Carregando…</div>;
   }
-  if (!session) return null;
+  // requireAppSession no beforeLoad garante que só usuários autenticados chegam aqui
 
   async function logout() {
     await supabase.auth.signOut();

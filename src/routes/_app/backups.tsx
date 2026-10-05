@@ -7,7 +7,7 @@ import {
   getBackupConfig,
   updateBackupConfig,
   generateBackupNow,
-  getBackupDownloadUrl,
+  downloadBackup,
   restoreBackup,
 } from "@/lib/backups.functions";
 import { Button } from "@/components/ui/button";
@@ -40,7 +40,7 @@ function BackupsPage() {
   const cfgFn = useServerFn(getBackupConfig);
   const updCfgFn = useServerFn(updateBackupConfig);
   const genFn = useServerFn(generateBackupNow);
-  const dlFn = useServerFn(getBackupDownloadUrl);
+  const dlFn = useServerFn(downloadBackup);
   const restoreFn = useServerFn(restoreBackup);
 
   const { data: cfg } = useQuery({ queryKey: ["backup-config"], queryFn: () => cfgFn() });
@@ -71,9 +71,22 @@ function BackupsPage() {
 
   const download = useMutation({
     mutationFn: (id: string) => dlFn({ data: { id } }),
-    onSuccess: (r) => {
-      window.open(r.url, "_blank");
-      toast.success("Link de download gerado (expira em 15 min)");
+    onSuccess: async (response) => {
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      // Tenta extrair filename do header Content-Disposition
+      const cd = response.headers.get("Content-Disposition");
+      let filename = "backup.json";
+      if (cd) {
+        const m = cd.match(/filename="([^"]+)"/);
+        if (m) filename = m[1];
+      }
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Download iniciado");
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Erro"),
   });

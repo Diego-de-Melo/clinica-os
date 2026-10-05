@@ -1,10 +1,10 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 import { getSessionContext } from "@/lib/session.functions";
 import { getPostLoginPath } from "@/lib/route-auth";
+import { loginWithRateLimit } from "@/lib/auth-rate-limit";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +22,7 @@ export const Route = createFileRoute("/login")({
 function LoginPage() {
   const navigate = useNavigate();
   const sessionFn = useServerFn(getSessionContext);
+  const loginFn = useServerFn(loginWithRateLimit);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -36,14 +37,12 @@ function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-      const session = await sessionFn();
+      const { path } = await loginFn({ data: { email, password } });
       toast.success("Login efetuado");
-      navigate({ to: getPostLoginPath(session) });
+      navigate({ to: path });
     } catch (err) {
       console.error("[auth] login failed", err);
-      toast.error("Falha ao entrar");
+      toast.error(err instanceof Error ? err.message : "Falha ao entrar");
     } finally {
       setLoading(false);
     }

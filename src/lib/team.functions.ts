@@ -2,6 +2,8 @@ import { createServerFn, createMiddleware } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { throwDatabaseError, throwServiceError } from "@/lib/safe-errors";
+import { joinDecision } from "@/lib/team-join";
+import { requireActiveClinic } from "@/lib/auth-guards";
 
 type TeamRole = "admin" | "contador" | "operador" | "usuario";
 
@@ -32,16 +34,27 @@ async function findAuthUserByEmail(email: string) {
   return null;
 }
 
+import type { AppRole } from "@/lib/auth-guards";
+
 async function assertUserCanJoinClinic(userId: string, clinicId: string) {
   const admin = await getSupabaseAdmin();
   const { data: profile, error: profileError } = await admin
     .from("profiles")
-    .select("clinic_id")
+    .select("clinic_id, role, email")
     .eq("id", userId)
     .maybeSingle();
   if (profileError) throwDatabaseError(profileError);
-  if (profile?.clinic_id && profile.clinic_id !== clinicId) {
-    throw new Error("Este e-mail já está vinculado a outra clínica.");
+  const decision = joinDecision(
+    profile
+      ? {
+          clinic_id: profile.clinic_id,
+          role: profile.role as AppRole,
+          email: profile.email,
+        }
+      : null,
+  );
+  if (decision.mode === "reject") {
+    throw new Error(decision.reason);
   }
 }
 
@@ -65,7 +78,7 @@ async function ensureClinicProfile({
 }
 
 const requireClinicAdmin = createMiddleware({ type: "function" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, requireActiveClinic])
   .server(async ({ next, context }) => {
     const { supabase, userId } = context;
     const { data, error } = await supabase
@@ -123,11 +136,13 @@ export const createTeamMember = createServerFn({ method: "POST" })
       if (!existingUser) {
         throw new Error("Este e-mail já existe, mas não foi possível localizar o cadastro.");
       }
+      // joinDecision (via assertUserCanJoinClinic) rejeita QUALQUER perfil existente:
+      // super_admin (clinic_id null), usuário de outra clínica, ou já membro desta.
       await assertUserCanJoinClinic(existingUser.id, context.clinicId);
+      // Se chegou aqui (não deveria), lógica legada mantida por segurança:
       const { error: updateError } = await admin.auth.admin.updateUserById(
         existingUser.id,
         {
-          password: data.password,
           user_metadata: { role: data.role, clinic_id: context.clinicId },
         },
       );

@@ -100,3 +100,11 @@ Key server modules:
 
 shadcn/ui "new-york" style, Lucide icons, Tailwind CSS v4 with CSS variables.
 Components live in `src/components/ui/`. Add via shadcn CLI — do not hand-write from scratch.
+
+## Security checklist (T5)
+
+Toda função `SECURITY DEFINER` nova precisa:
+1. Predicado de `clinic_id` no corpo (ex.: `WHERE clinic_id = current_clinic_id()`).
+2. `SET search_path` explícito (`''` quando tudo é `public.x`, senão `public, pg_temp`).
+3. `REVOKE EXECUTE FROM PUBLIC, anon` na mesma migration.
+4. Teste em `tests/rls/` cobrindo: cross-tenant, papel errado, clínica inativa.

@@ -63,7 +63,7 @@ This is a project built to run in production for real: server-side rendering exe
 | shadcn/ui + Radix UI | Accessible components in the "new-york" style |
 | Zod | Input validation for every server function |
 | Vitest | Tests for access rules and utilities |
-| Bun | Package manager and project scripts |
+| npm | Package manager and project scripts |
 | Prettier + ESLint | Formatting and linting (with the Prettier plugin) |
 
 ## Project structure
@@ -101,7 +101,7 @@ This is a project built to run in production for real: server-side rendering exe
 ├── wrangler.jsonc               # Cloudflare Workers configuration
 ├── vite.config.ts               # Vite/TanStack Start configuration
 ├── vitest.config.ts             # Test configuration (node environment)
-├── bunfig.toml                  # Bun supply-chain guard (24h release age)
+├── .npmrc                       # npm config (audit level, engine strict)
 └── AGENTS.md                    # Project conventions
 ```
 
@@ -109,7 +109,8 @@ This is a project built to run in production for real: server-side rendering exe
 
 ### Prerequisites
 
-- [Bun](https://bun.sh) — the package manager used by the project.
+- [Node.js](https://nodejs.org) ≥ 24 — project runtime.
+- [npm](https://npmjs.com) ≥ 11 — package manager (comes with Node.js).
 - A Supabase project with the migrations in `supabase/migrations` applied.
 - (Optional) A Cloudflare Workers account for the production deploy.
 
@@ -118,23 +119,24 @@ This is a project built to run in production for real: server-side rendering exe
 ```bash
 git clone https://github.com/<your_username>/clinica-os.git
 cd clinica-os
-bun install
+npm ci
 cp .env.example .env   # fill in the values for your Supabase project
-bun run dev
+npm run dev
 ```
 
 ### Commands
 
 | Command | What it does |
 | --- | --- |
-| `bun run dev` | Vite development server |
-| `bun run build` | Production build (Cloudflare Workers) |
-| `bun run build:dev` | Development-mode build |
-| `bun run preview` | Preview the build |
-| `bun run lint` | ESLint |
-| `bun run format` | Prettier (formats the code) |
-| `bun run test` | Vitest (single run) |
-| `bun run test:watch` | Vitest in watch mode |
+| `npm run dev` | Vite development server |
+| `npm run build` | Production build (Cloudflare Workers) |
+| `npm run build:dev` | Development-mode build |
+| `npm run preview` | Preview the build |
+| `npm run lint` | ESLint |
+| `npm run format` | Prettier (formats the code) |
+| `npm run test` | Vitest (single run) |
+| `npm run test:watch` | Vitest in watch mode |
+| `npm run test:rls` | RLS integration tests (requires Docker + local Supabase) |
 
 ### Environment variables
 
@@ -156,7 +158,16 @@ The global panel lives at `/master-admin` and has no menu link — by design, th
 
 - Logging in with a `super_admin` account goes straight to the panel (clinic routes redirect there too).
 - Typing the URL without the role bounces the person back to the dashboard.
-- There is no button to grant the role: on a new instance, promote your own account in the **Supabase SQL Editor**, replacing the e-mail and running the whole block at once:
+- There is no button to grant the role: on a new instance the account is born outside the app and is promoted in the **Supabase SQL Editor** — see the bootstrap below.
+
+#### First-account bootstrap (new instance)
+
+A freshly created instance has no accounts at all and the app has no sign-up screen — users arrive by invitation. The first account therefore comes from outside the app:
+
+1. In the Supabase dashboard, under **Authentication → Users**, use **Invite user** and enter the e-mail of the person running the SaaS. The invite creates the user in `auth.users` without opening public sign-up — the `admin/invite` endpoint is not affected by the *Allow new users to sign up* toggle.
+2. Open the e-mail, set the password and sign in. At that point the account is created as `usuario` with no clinic: the `handle_new_user` trigger only reads `role` and `clinic_id` from the metadata when the request comes from `service_role`.
+3. In the **Supabase SQL Editor**, replace the e-mail in the block below and run it as a whole. The `set_config` of the claims is mandatory — without it `is_super_admin()` returns false and the `prevent_profile_privilege_escalation` trigger raises *Not allowed to change role*.
+4. Reload and sign in again — the login lands straight on `/master-admin`.
 
 ```sql
 DO $$
@@ -167,18 +178,29 @@ BEGIN
 END $$;
 ```
 
-After the promotion, reload the page and the panel opens. Other users are invited from the panel — the app has no public sign-up (recommended: in the Supabase dashboard, under **Authentication**, turn off the *Allow new users to sign up* toggle).
+Every other user is invited from the panel — the app has no public sign-up (recommended: in the Supabase dashboard, under **Authentication**, turn off the *Allow new users to sign up* toggle).
 
 ## Technical highlights
 
 - **Tenant isolation in the database.** Every business table carries a `clinic_id` and is covered by Supabase row-level security policies. The browser client uses the public key, so it can only ever read its own clinic's data; the service role key is confined to `*.server.ts` modules.
-- **Authorization in three layers.** RLS policies in Postgres, role assertions inside server functions (`assertAdminRole`, `assertPatientWriter`, `assertAttendanceWriter`, `assertStaffRole`) and route guards (`requireAppSession`, `requireSuperAdminSession`) that redirect to login, the block screen or the global panel as appropriate.
+- **Authorization in three layers.** RLS policies in Postgres, role assertions inside server functions (`assertAdminRole`, `assertPatientWriter`, `assertAttendanceWriter`, `assertStaffRole`) and **server-side route guards via `beforeLoad`** (`requireAppSession`, `requireSuperAdminSession`) that redirect to login, the block screen or the global panel before the component renders.
 - **Role-aware billing transitions.** Status changes are not a generic button: each role only receives the transitions it may perform (for example, the accountant issues invoices and flags invalid CPFs, while admin and operator correct them), and the super admin is excluded from clinical data.
 - **SSR running on the edge.** TanStack Start with server functions, a global error middleware (custom page on status 500) and auth token forwarding to server calls, compiled to Cloudflare Workers.
 - **Automated tests on the access rules.** Vitest covers `auth-guards`, `clinic-utils` and the RLS/role matrix — exactly the kind of logic that usually breaks silently.
 - **Audit and LGPD compliance.** A `log_audit` function recording sensitive operations, patient data export and anonymization, a consents table, soft deletion of appointments and the removal of super admin access to clinical data.
 - **Encrypted, versioned backups.** AES-256-GCM snapshots with a checksum, per-clinic versioning, configurable retention, restore and a scheduled-run webhook authenticated by the service key.
-- **Code quality.** Zod validation on every server function, standardized errors in their own module, ESLint + Prettier and a Bun supply-chain guard (packages must be at least 24h old).
+- **Code quality.** Zod validation on every server function, standardized errors in their own module, ESLint + Prettier and **mandatory dependency audit in CI** (`npm audit --omit=dev --audit-level=high`).
+
+## Security
+
+- **Security headers on Worker** (M9): strict CSP in production, essential headers in dev, `CSP_REPORT_ONLY=1` toggle.
+- **Rate limiting** (M2): backup (1/30min/clinic), CSV import (5/h/user), login (10/15min/IP).
+- **Session in httpOnly cookie** (M3): `@supabase/ssr` with cookie fallback in middleware.
+- **Dedicated backup webhook secret** (A1): `BACKUP_HOOK_SECRET` separate from `service_role`.
+- **PII redaction** (A3): `audit_logs.metadata` anonymized before write.
+- **Removal of exposed `logAudit`** (A4): public endpoint removed.
+- **Redirect validation** (B6): `assertAllowedRedirect` blocks non-allowed origins.
+- **CSV formula injection** (M4): `csvCell` neutralizes `=`, `+`, `-`, `@`, tab, CR/LF.
 
 ## License
 

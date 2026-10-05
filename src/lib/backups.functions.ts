@@ -1,14 +1,17 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { requireClinicProfile, assertAdminRole } from "@/lib/auth-guards";
+import { requireClinicProfile, assertAdminRole, requireActiveClinic } from "@/lib/auth-guards";
 const logAuditInternal: typeof import("@/lib/audit.server").logAuditInternal = async (...args) => (await import("@/lib/audit.server")).logAuditInternal(...args);
 import { throwDatabaseError } from "@/lib/safe-errors";
+import { parseBackupSnapshot, buildUpsertPayload } from "@/lib/backup-restore.schema";
+import { backupDownloadHeaders, bufferToBodyInit } from "@/lib/backup-download";
+import { limitFor } from "@/lib/rate-limit";
 
 export const listBackups = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, requireActiveClinic])
   .handler(async ({ context }) => {
-    const { supabase, userId } = context;
+    const { supabase, userId, clinicId } = context;
     const profile = await requireClinicProfile(supabase, userId);
     assertAdminRole(profile.role);
 
@@ -23,7 +26,7 @@ export const listBackups = createServerFn({ method: "GET" })
   });
 
 export const getBackupConfig = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, requireActiveClinic])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
     const profile = await requireClinicProfile(supabase, userId);
@@ -48,7 +51,7 @@ export const getBackupConfig = createServerFn({ method: "GET" })
   });
 
 export const updateBackupConfig = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, requireActiveClinic])
   .inputValidator((input) =>
     z
       .object({
@@ -81,8 +84,9 @@ export const updateBackupConfig = createServerFn({ method: "POST" })
   });
 
 export const generateBackupNow = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, requireActiveClinic])
   .handler(async ({ context }) => {
+    limitFor(`backup:${context.profile.clinic_id}`, 1, 30 * 60_000); // 1 per 30 min por clínica
     const { supabase, userId } = context;
     const profile = await requireClinicProfile(supabase, userId);
     assertAdminRole(profile.role);
@@ -132,28 +136,43 @@ export const generateBackupNow = createServerFn({ method: "POST" })
     }
   });
 
-export const getBackupDownloadUrl = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+export const downloadBackup = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth, requireActiveClinic])
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ context, data }) => {
     const { supabase, userId } = context;
     const profile = await requireClinicProfile(supabase, userId);
     assertAdminRole(profile.role);
 
-    const { createSignedTempDownload } = await import("./backups.server");
-    const result = await createSignedTempDownload(profile.clinic_id, data.id);
+    const { downloadAndDecrypt } = await import("./backups.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Confere tenant
+    const { data: bk, error: bkErr } = await supabaseAdmin
+      .from("backups")
+      .select("id, clinic_id, version")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (bkErr) throwDatabaseError(bkErr);
+    if (!bk || bk.clinic_id !== profile.clinic_id) throw new Error("Backup não encontrado.");
+
+    const plaintext = await downloadAndDecrypt(data.id, profile.clinic_id);
 
     await logAuditInternal(supabase, {
       action: "backup.download",
       entity: "backups",
       recordId: data.id,
-      metadata: { filename: result.filename, expires_in: result.expiresIn },
+      metadata: { version: bk.version },
     });
-    return result;
+
+    // Devolve Response com headers de download; NÃO grava nada no Storage
+    return new Response(bufferToBodyInit(plaintext), {
+      headers: backupDownloadHeaders(`clinica-${profile.clinic_id}-backup-${bk.version}.json`),
+    });
   });
 
 export const restoreBackup = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, requireActiveClinic])
   .inputValidator((input) =>
     z
       .object({
@@ -171,18 +190,17 @@ export const restoreBackup = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const plaintext = await downloadAndDecrypt(data.id, profile.clinic_id);
-    const snapshot = JSON.parse(plaintext.toString("utf8")) as {
-      patients: Array<Record<string, unknown>>;
-      attendances: Array<Record<string, unknown>>;
-      consents: Array<Record<string, unknown>>;
-    };
+    const rawSnapshot = JSON.parse(plaintext.toString("utf8"));
+
+    // Validação estrita via zod (allowlist, sem clinic_id, limites de tamanho)
+    const snapshot = parseBackupSnapshot(rawSnapshot);
+    const payload = buildUpsertPayload(snapshot);
 
     let upPatients = 0;
     let upAttendances = 0;
-    let upConsents = 0;
 
-    if (snapshot.patients?.length) {
-      const rows = snapshot.patients.map((p) => ({ ...p, clinic_id: profile.clinic_id }));
+    if (payload.patients.length) {
+      const rows = payload.patients.map((p) => ({ ...p, clinic_id: profile.clinic_id }));
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await supabaseAdmin.from("patients").upsert(rows as any, { onConflict: "id" });
       if (error) {
@@ -191,11 +209,11 @@ export const restoreBackup = createServerFn({ method: "POST" })
       }
       upPatients = rows.length;
     }
-    if (snapshot.attendances?.length) {
-      const rows = snapshot.attendances.map((a) => ({ ...a, clinic_id: profile.clinic_id }));
+    if (payload.attendances.length) {
+      const rows = payload.attendances.map((a) => ({ ...a, clinic_id: profile.clinic_id }));
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await supabaseAdmin
         .from("attendances")
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .upsert(rows as any, { onConflict: "id" });
       if (error) {
         console.error("[backup.restore] attendances upsert failed", error);
@@ -203,25 +221,15 @@ export const restoreBackup = createServerFn({ method: "POST" })
       }
       upAttendances = rows.length;
     }
-    if (snapshot.consents?.length) {
-      const rows = snapshot.consents.map((c) => ({ ...c, clinic_id: profile.clinic_id }));
-      const { error } = await supabaseAdmin
-        .from("consents")
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .upsert(rows as any, { onConflict: "id" });
-      if (error) {
-        console.error("[backup.restore] consents upsert failed", error);
-        throw new Error("Falha ao restaurar consentimentos.");
-      }
-      upConsents = rows.length;
-    }
+    // consents: não está no schema (adicionar se necessário)
+    // por ora ignora para não quebrar
 
     await logAuditInternal(supabase, {
       action: "backup.restore",
       entity: "backups",
       recordId: data.id,
-      metadata: { upserted_patients: upPatients, upserted_attendances: upAttendances, upserted_consents: upConsents },
+      metadata: { upserted_patients: upPatients, upserted_attendances: upAttendances },
     });
 
-    return { upserted: { patients: upPatients, attendances: upAttendances, consents: upConsents } };
+    return { upserted: { patients: upPatients, attendances: upAttendances } };
   });

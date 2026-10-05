@@ -1,15 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { runBackupForClinic, purgeExpiredBackups } from "@/lib/backups.server";
+import { isAuthorizedHook } from "@/lib/hook-auth";
 
 export const Route = createFileRoute("/api/public/hooks/run-clinic-backups")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        // Autorização: apenas service role key
+        // Autorização: segredo dedicado BACKUP_HOOK_SECRET (não service_role key)
         const auth = request.headers.get("authorization");
-        const expectedService = process.env.SUPABASE_SERVICE_ROLE_KEY;
-        if (!auth || !expectedService || auth !== `Bearer ${expectedService}`) {
+        const expected = process.env.BACKUP_HOOK_SECRET;
+        if (!isAuthorizedHook(auth, expected)) {
           return new Response("Unauthorized", { status: 401 });
         }
 
