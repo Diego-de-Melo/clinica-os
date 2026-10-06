@@ -188,6 +188,24 @@ function PatientDetail() {
         </div>
       </div>
 
+      {/* LGPD — Direitos do titular */}
+      {isAdmin && (
+        <div className="rounded-2xl border bg-card p-5 shadow-card space-y-4">
+          <div className="flex items-center gap-2">
+            <ShieldAlert className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-medium">Direitos do titular (LGPD)</h2>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Conforme a Lei Geral de Proteção de Dados, o titular pode solicitar a exportação
+            ou a anonimização de seus dados. As ações abaixo são registradas em auditoria.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <ExportPatientButton patientId={id} />
+            <AnonymizePatientButtonSimple patientId={id} patientName={data.patient.name} />
+          </div>
+        </div>
+      )}
+
       <div className="rounded-2xl border bg-card shadow-card">
         <div className="px-5 py-4 border-b flex items-center justify-between">
           <div>
